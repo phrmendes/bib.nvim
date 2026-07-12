@@ -1,0 +1,1 @@
+(minus_metadata) @frontmatter

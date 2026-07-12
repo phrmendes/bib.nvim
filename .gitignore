@@ -1,6 +1,9 @@
 # Compiled Lua sources
 luac.out
 
+# Local dev dependencies
+deps/
+
 # luarocks build files
 *.src.rock
 *.zip
@@ -39,3 +42,5 @@ luac.out
 *.x86_64
 *.hex
 
+.devenv
+todo.txt
