@@ -14,7 +14,6 @@ in
 
   packages = with pkgs; [
     sqlite
-    stylua
   ];
 
   env = {
