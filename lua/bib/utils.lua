@@ -120,6 +120,14 @@ function utils.resolve_path(base, path)
 	return vim.fn.fnamemodify(base .. "/" .. path, ":p")
 end
 
+--- Find the Zotero database path from config or default
+---@return string|nil
+function utils.find_zotero_db()
+	local cfg = require("bib.config").get()
+	if cfg.zotero and cfg.zotero.database then return cfg.zotero.database end
+	return vim.fs.joinpath(vim.env.HOME, "Zotero", "zotero.sqlite")
+end
+
 --- Walk up from cursor position to find and extract a citation key
 ---@param bufnr integer
 ---@param lnum integer
