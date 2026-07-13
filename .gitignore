@@ -44,3 +44,4 @@ deps/
 
 .devenv
 todo.txt
+.pre-commit-config.yaml
