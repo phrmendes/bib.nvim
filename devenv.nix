@@ -23,6 +23,13 @@ in
 
   git-hooks.hooks = {
     stylua.enable = true;
+    sql-check = {
+      enable = true;
+      name = "SQL validate";
+      entry = "${pkgs.sqlite}/bin/sqlite3 :memory: '.read'";
+      files = "\\.sql$";
+      language = "system";
+    };
   };
 
   scripts = {
