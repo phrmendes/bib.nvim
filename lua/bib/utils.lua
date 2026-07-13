@@ -1,15 +1,8 @@
-local yaml = require("bib.yaml")
+local patterns = require("bib.patterns")
 local queries = require("bib.queries")
+local yaml = require("bib.yaml")
 
 local utils = {}
-
----@class BibPatterns
----@field concat_sep string
----@field entry_type_prefix string
-utils.patterns = {
-	concat_sep = "%s*#%s*",
-	entry_type_prefix = "^@",
-}
 
 --- Get text from a node, optionally truncated to cursor column
 ---@param node TSNode
@@ -30,27 +23,19 @@ end
 ---@param pos integer 1-indexed position within text
 ---@return string|nil
 local function word_at(text, pos)
-	local i = pos
-	while i > 0 and text:sub(i, i):find("[%w%-]") do
-		i = i - 1
-	end
-
-	if text:sub(i, i) ~= "@" then return nil end
-
-	local j = pos
-
-	while j <= #text and text:sub(j, j):find("[%w%-]") do
-		j = j + 1
-	end
-
-	return text:sub(i + 1, j - 1)
+	local prefix = text:sub(1, pos - 1):match(patterns.key_left)
+	if not prefix then return nil end
+	local suffix = text:sub(pos)
+	local rest = suffix:match(patterns.key_right)
+	if not rest then return nil end
+	return prefix .. rest
 end
 
 ---@type table<string, fun(node: TSNode, bufnr: integer, prefix_col: integer|nil, full_col: integer|nil): string|nil>
 local citation_extractors = {
 	curly_group_text = function(node, bufnr, prefix_col) return node_text(node, bufnr, prefix_col) end,
 	inline = function(node, bufnr, prefix_col, full_col)
-		if prefix_col then return node_text(node, bufnr, prefix_col):match(".*@(%S*)$") end
+		if prefix_col then return node_text(node, bufnr, prefix_col):match(patterns.inline_partial) end
 		local _, start_col = node:start()
 		return word_at(vim.treesitter.get_node_text(node, bufnr), full_col - start_col + 1)
 	end,
@@ -66,20 +51,24 @@ local finders = {
 }
 
 ---@type table<string, fun(node: TSNode, bufnr: integer, dir: string): string|nil>
-local tex_bib_extractors = {
-	biblatex_include = function(node, bufnr, dir)
-		local text = vim.treesitter.get_node_text(node, bufnr)
-		local bib = text:match("\\addbibresource%s*{(.-)}")
-		return bib and utils.resolve_path(dir, bib)
-	end,
+local tex_bib_extractors
+
+local function extract_curly_arg(node, bufnr)
+	return vim.iter(node:iter_children()):fold(nil, function(acc, c)
+		if acc then return acc end
+		if c:type():find("curly_group") or c:type() == "path" then return vim.treesitter.get_node_text(c, bufnr):sub(2, -2) end
+		return extract_curly_arg(c, bufnr)
+	end)
+end
+
+tex_bib_extractors = {
 	bibtex_include = function(node, bufnr, dir)
-		local text = vim.treesitter.get_node_text(node, bufnr)
-		local bib = text:match("\\bibliography%s*{(.-)}")
-		return bib and utils.resolve_path(dir, bib .. ".bib")
+		local arg = extract_curly_arg(node, bufnr)
+		return arg and utils.resolve_path(dir, arg .. ".bib")
 	end,
 	line_comment = function(node, bufnr, dir)
 		local text = vim.treesitter.get_node_text(node, bufnr)
-		local root_file = text:match("%%+%s*!%s*[Tt][Ee][Xx]%s+root%s*=%s*(.-)%s*$")
+		local root_file = text:match(patterns.tex_root)
 		if not root_file then return nil end
 		local rootpath = utils.resolve_path(dir, root_file)
 		if not rootpath then return nil end
@@ -112,7 +101,7 @@ function utils.resolve_value(value, strings)
 	local resolved = strings[value]
 	if resolved then return resolved end
 	return table.concat(vim
-		.iter(vim.split(value, utils.patterns.concat_sep))
+		.iter(vim.split(value, patterns.concat_sep))
 		:map(function(part)
 			if not part then return "" end
 			local s = utils.strip_value(part)
@@ -127,7 +116,7 @@ end
 ---@param path string
 ---@return string|nil
 function utils.resolve_path(base, path)
-	if not path or path == "" or path:find("^/") or path:find("^%a:[/\\]") then return path end
+	if not path or path == "" or path:sub(1, 1) == "/" or path:sub(2, 2) == ":" then return path end
 	return vim.fn.fnamemodify(base .. "/" .. path, ":p")
 end
 
@@ -190,14 +179,22 @@ end
 function utils.find_tex_bib(dir, bufnr)
 	local parser = vim.treesitter.get_parser(bufnr, "latex")
 	if not parser then return nil end
-	local matches = queries.latex_bibliography:iter_matches(parser:parse()[1]:root(), bufnr, 0, -1)
+	local root = parser:parse()[1]:root()
+	local matches = queries.latex_bibliography:iter_matches(root, bufnr, 0, -1)
 
-	return vim.iter(matches):find(function(_, match)
-		return vim.iter(match):map(function(nodes) return nodes[1] end):find(function(node)
-			local extract = tex_bib_extractors[node:type()]
-			return extract and extract(node, bufnr, dir)
+	return vim
+		.iter(matches)
+		:map(function(_, match)
+			return vim
+				.iter(vim.tbl_values(match))
+				:map(function(nodes) return nodes[1] end)
+				:map(function(node)
+					local extract = tex_bib_extractors[node:type()]
+					return extract and extract(node, bufnr, dir)
+				end)
+				:find(function(path) return path ~= nil end)
 		end)
-	end)
+		:find(function(path) return path ~= nil end)
 end
 
 return utils

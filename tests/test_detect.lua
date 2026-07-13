@@ -51,11 +51,6 @@ T["find_tex_bib"] = test.new_set()
 
 vim.iter({
   {
-    name = "finds addbibresource",
-    content = "\\documentclass{article}\n\\addbibresource{refs.bib}\n\\begin{document}\nHello\n\\end{document}\n",
-    expected_getter = function(dir) return vim.fs.joinpath(dir, "refs.bib") end,
-  },
-  {
     name = "finds bibliography command",
     content = "\\documentclass{article}\n\\begin{document}\nHello\n\\bibliography{refs}\n\\end{document}\n",
     expected_getter = function(dir) return vim.fs.joinpath(dir, "refs.bib") end,

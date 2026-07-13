@@ -1,3 +1,4 @@
+local patterns = require("bib.patterns")
 local query = require("bib.query")
 local utils = require("bib.utils")
 local queries = require("bib.queries")
@@ -58,7 +59,7 @@ local function collect_entries(buf, root, strings)
 			return result
 		end
 
-		local etype = vim.treesitter.get_node_text(type_node, buf):gsub(utils.patterns.entry_type_prefix, ""):lower()
+		local etype = vim.treesitter.get_node_text(type_node, buf):sub(2):lower()
 
 		result[key] = {
 			key = key,
@@ -156,7 +157,7 @@ function bib.hover(key)
 	if entry.fields.journal then table.insert(parts, "# Journal\n" .. entry.fields.journal) end
 	if entry.fields.booktitle then table.insert(parts, "# Book\n" .. entry.fields.booktitle) end
 	if entry.fields.abstract then
-		local abstract = entry.fields.abstract:gsub("%s+", " ")
+		local abstract = entry.fields.abstract:gsub(patterns.whitespace, " ")
 		table.insert(parts, "---\n" .. abstract)
 	end
 	return table.concat(parts, "\n\n")

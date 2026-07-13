@@ -19,7 +19,7 @@ utils.new_child_set = function()
 	local child = test.new_child_neovim()
 	local T = test.new_set({
 		hooks = {
-			pre_case = function() child.restart({ "-u", "scripts/init.lua" }) end,
+			pre_case = function() child.restart({ "--noplugin", "-u", "scripts/init.lua" }) end,
 			post_case = function()
 				local temp_dirs = child.lua_get("vim.fn.glob('/tmp/bib.nvim/test_*', 0, 1)")
 				vim.iter(temp_dirs):each(function(dir) child.lua(string.format("vim.fn.delete(%q, 'rf')", dir)) end)

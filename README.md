@@ -56,4 +56,13 @@ Apache-2.0
 
 ## Roadmap
 
-- [ ] Zotero integration: completion, hover, go-to-definition, note extraction, and PDF opening via `sqlite.lua`
+- [ ] Zotero integration: completion, hover, go-to-definition
+  - Composite keys (`@id#citekey`)
+  - sqlite.lua dependency
+  - [ ] DB path auto-detection + config
+  - [ ] `sql/queries.sql` named queries
+  - [ ] `bib.backends.zotero` backend module
+  - [ ] Auto-dispatch: .bib first, Zotero fallback
+  - `:BibSearchZotero`: search full Zotero library, insert citation key
+  - Notes: code action + :BibZoteroNotes command with vim.ui.select
+  - PDF opening: code action opens in system viewer
