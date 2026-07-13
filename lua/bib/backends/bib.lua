@@ -1,7 +1,7 @@
 local patterns = require("bib.patterns")
+local queries = require("bib.queries")
 local query = require("bib.query")
 local utils = require("bib.utils")
-local queries = require("bib.queries")
 
 ---@class BibEntry
 ---@field key string The citation key

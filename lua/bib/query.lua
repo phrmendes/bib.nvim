@@ -5,21 +5,21 @@ local query = {}
 ---@param name string Query file name without extension
 ---@return vim.treesitter.Query
 function query.load_query(lang, name)
-  local path = "queries/" .. lang .. "/" .. name .. ".scm"
-  local files = vim.api.nvim_get_runtime_file(path, false)
-  if #files == 0 then error("query not found: " .. path) end
-  local content = table.concat(vim.fn.readfile(files[1]), "\n")
-  return vim.treesitter.query.parse(lang, content)
+	local path = "queries/" .. lang .. "/" .. name .. ".scm"
+	local files = vim.api.nvim_get_runtime_file(path, false)
+	if #files == 0 then error("query not found: " .. path) end
+	local content = table.concat(vim.fn.readfile(files[1]), "\n")
+	return vim.treesitter.query.parse(lang, content)
 end
 
 --- Build reverse lookup: capture name -> capture ID
 ---@param query vim.treesitter.Query
 ---@return table<string, integer>
 function query.capture_ids(query)
-  return vim.iter(pairs(query.captures)):fold({}, function(ids, id, name)
-    ids[name] = id
-    return ids
-  end)
+	return vim.iter(pairs(query.captures)):fold({}, function(ids, id, name)
+		ids[name] = id
+		return ids
+	end)
 end
 
 --- Run a tree-sitter query and fold results into an accumulator
@@ -31,9 +31,9 @@ end
 ---@param fn fun(acc: T, match: table, ids: table): T
 ---@return T
 function query.fold_matches(q, root, buf, initial, fn)
-  local ids = query.capture_ids(q)
-  local matches = q:iter_matches(root, buf, 0, -1)
-  return vim.iter(matches):fold(initial, function(acc, _, match) return fn(acc, match, ids) end)
+	local ids = query.capture_ids(q)
+	local matches = q:iter_matches(root, buf, 0, -1)
+	return vim.iter(matches):fold(initial, function(acc, _, match) return fn(acc, match, ids) end)
 end
 
 return query

@@ -175,9 +175,7 @@ local function lsp_request(method, params, callback, _)
 end
 
 local notify_handlers = {
-	["initialized"] = function()
-		server_state.stopped = false
-	end,
+	["initialized"] = function() server_state.stopped = false end,
 }
 
 ---@param method string

@@ -1,5 +1,5 @@
-local queries = require("bib.queries")
 local q = require("bib.query")
+local queries = require("bib.queries")
 
 local yaml = {}
 

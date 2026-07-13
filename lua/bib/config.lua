@@ -8,6 +8,7 @@
 ---@type BibConfig
 local defaults = {
 	filetypes = { "markdown", "tex" },
+	zotero = {},
 }
 
 local config = {}
@@ -20,17 +21,18 @@ config.options = vim.deepcopy(defaults)
 function config.setup(opts)
 	config.options = vim.tbl_deep_extend("force", defaults, opts or {})
 
-	vim.lsp.config("bib_ls", { cmd = function()
-		local lsp = require("bib.lsp")
-		return lsp.server()
-	end, filetypes = config.options.filetypes })
+	vim.lsp.config("bib_ls", {
+		cmd = function()
+			local lsp = require("bib.lsp")
+			return lsp.server()
+		end,
+		filetypes = config.options.filetypes,
+	})
 
 	vim.api.nvim_create_autocmd("FileType", {
 		pattern = config.options.filetypes,
 		group = vim.api.nvim_create_augroup("BibPlugin", { clear = true }),
-		callback = function(args)
-			require("bib.lsp").start(args.buf)
-		end,
+		callback = function(args) require("bib.lsp").start(args.buf) end,
 	})
 end
 
