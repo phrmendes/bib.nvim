@@ -1,6 +1,5 @@
+local bib_utils = require("bib.backends.utils")
 local patterns = require("bib.patterns")
-local queries = require("bib.queries")
-local query = require("bib.query")
 local utils = require("bib.utils")
 
 ---@class BibEntry
@@ -11,86 +10,11 @@ local utils = require("bib.utils")
 
 local bib = {}
 
----@type table<string, BibEntry>|nil
-local entries = nil
+---@type table<string, BibEntry>
+local entries = {}
 
 ---@type string|nil
 local bib_path = nil
-
---- Extract @string macros from the AST
----@param buf integer
----@param root TSNode
----@return table<string, string>
-local function collect_strings(buf, root)
-	local ids = query.capture_ids(queries.bibtex_strings)
-	local matches = queries.bibtex_strings:iter_matches(root, buf, 0, -1)
-	return vim.iter(matches):fold({}, function(strings, _, match)
-		local name_node = match[ids["name"]][1]
-		local value_node = match[ids["value"]][1]
-		if not name_node or not value_node then return strings end
-		local name = vim.trim(vim.treesitter.get_node_text(name_node, buf))
-		local value = utils.strip_value(vim.treesitter.get_node_text(value_node, buf))
-		if name ~= "" then strings[name] = value end
-		return strings
-	end)
-end
-
---- Extract entries from the AST
----@param buf integer
----@param root TSNode
----@param strings table<string, string>
----@return table<string, BibEntry>
-local function collect_entries(buf, root, strings)
-	local ids = query.capture_ids(queries.bibtex_entries)
-	local matches = queries.bibtex_entries:iter_matches(root, buf, 0, -1)
-	return vim.iter(matches):fold({}, function(result, _, match)
-		local type_node = match[ids["type"]][1]
-		local key_node = match[ids["key"]][1]
-		local name_node = match[ids["name"]][1]
-		local value_node = match[ids["value"]][1]
-
-		if not type_node or not key_node or not name_node or not value_node then return result end
-		local key = vim.treesitter.get_node_text(key_node, buf)
-		local fname = vim.trim(vim.treesitter.get_node_text(name_node, buf)):lower()
-		local fvalue = utils.resolve_value(vim.treesitter.get_node_text(value_node, buf), strings)
-
-		if result[key] then
-			result[key].fields[fname] = fvalue
-			return result
-		end
-
-		local etype = vim.treesitter.get_node_text(type_node, buf):sub(2):lower()
-
-		result[key] = {
-			key = key,
-			type = etype,
-			fields = { [fname] = fvalue },
-			line = type_node:start() + 1,
-		}
-		return result
-	end)
-end
-
---- Parse a .bib file using tree-sitter
----@param path string
----@return table<string, BibEntry>|nil
-local function parse(path)
-	local buf = vim.fn.bufadd(path)
-	vim.fn.bufload(buf)
-
-	local parser = vim.treesitter.get_parser(buf, "bibtex")
-	if not parser then
-		vim.api.nvim_buf_delete(buf, { force = true })
-		return nil
-	end
-
-	local root = parser:parse()[1]:root()
-	local strings = collect_strings(buf, root)
-	local result = collect_entries(buf, root, strings)
-
-	vim.api.nvim_buf_delete(buf, { force = true })
-	return result
-end
 
 --- Load entries from the .bib file for a buffer
 ---@param bufnr integer
@@ -99,7 +23,7 @@ function bib.load(bufnr)
 	local found = utils.find_bib_file(bufnr)
 	if not found then return false end
 
-	local parsed = parse(found)
+	local parsed = bib_utils.parse(found)
 	if not parsed then
 		vim.notify("bib.nvim: failed to parse " .. found, vim.log.levels.WARN)
 		return false
@@ -114,7 +38,6 @@ end
 ---@param prefix string
 ---@return BibEntry[]
 function bib.match(prefix)
-	if not entries then return {} end
 	local lower = prefix:lower()
 	return vim.iter(pairs(entries)):filter(function(key) return key:lower():find(lower, 1, true) == 1 end):map(function(_, entry) return entry end):totable()
 end
@@ -122,16 +45,13 @@ end
 --- Get a single entry by key
 ---@param key string
 ---@return BibEntry|nil
-function bib.get(key)
-	if not entries then return nil end
-	return entries[key]
-end
+function bib.get(key) return entries[key] end
 
 --- Get go-to-definition location for a key
 ---@param key string
 ---@return {uri: string, range: table}|nil
 function bib.definition(key)
-	if not entries or not bib_path then return nil end
+	if not bib_path then return nil end
 	local entry = entries[key]
 	if not entry then return nil end
 	return {
@@ -147,7 +67,6 @@ end
 ---@param key string
 ---@return string|nil
 function bib.hover(key)
-	if not entries then return nil end
 	local entry = entries[key]
 	if not entry then return nil end
 	local parts = {}

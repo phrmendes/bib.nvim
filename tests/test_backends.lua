@@ -8,15 +8,6 @@ local entry = "@article{smith2020,\n  author = {John Smith},\n  title = {Test},\
 local entry2 = "@book{jones2021,\n  author = {Jane Jones},\n  title = {Book},\n  year = {2021}\n}"
 local both = entry .. "\n" .. entry2
 
-local function setup(c, bib_content)
-	local dir = tu.temp_dir()
-	tu.write_file(c, vim.fs.joinpath(dir, "refs.bib"), bib_content)
-	tu.write_file(c, vim.fs.joinpath(dir, "paper.md"), "---\nbibliography: refs.bib\n---\n")
-	c.lua(string.format("vim.cmd.edit(%q)", vim.fs.joinpath(dir, "paper.md")))
-	c.lua("require('bib.backends.bib').load(vim.api.nvim_get_current_buf())")
-	return dir
-end
-
 T["load"] = test.new_set()
 
 vim
@@ -38,7 +29,7 @@ vim
 T["match"] = test.new_set()
 
 T["match"]["matches by prefix"] = function()
-	setup(child, both)
+	tu.setup_bib(child, both)
 	eq(child.lua_get("#require('bib.backends.bib').match('smi')"), 1)
 	eq(child.lua_get("require('bib.backends.bib').match('smi')[1].key"), "smith2020")
 end
@@ -53,7 +44,7 @@ vim
 	})
 	:each(function(c)
 		T["get"]["returns " .. c.field] = function()
-			setup(child, entry)
+			tu.setup_bib(child, entry)
 			eq(child.lua_get("require('bib.backends.bib').get('smith2020')." .. c.field), c.expected)
 		end
 	end)
@@ -61,7 +52,7 @@ vim
 T["definition"] = test.new_set()
 
 T["definition"]["returns location with uri"] = function()
-	local dir = setup(child, entry)
+	local dir = tu.setup_bib(child, entry)
 	eq(child.lua_get("require('bib.backends.bib').definition('smith2020').uri"), vim.uri_from_fname(vim.fs.joinpath(dir, "refs.bib")))
 end
 
@@ -75,7 +66,7 @@ vim
 	})
 	:each(function(c)
 		T["hover"][c.name] = function()
-			setup(child, entry)
+			tu.setup_bib(child, entry)
 			eq(child.lua_get(c.expr), c.expected)
 		end
 	end)
