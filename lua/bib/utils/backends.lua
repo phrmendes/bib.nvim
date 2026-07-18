@@ -2,7 +2,26 @@ local patterns = require("bib.patterns")
 ---@type table<string, vim.treesitter.Query>
 local queries = require("bib.ts.queries")
 local ts = require("bib.ts")
-local u = require("bib.utils")
+
+--- Strip surrounding braces or quotes from a value
+---@param value string
+---@return string
+local function strip_value(value)
+	value = vim.trim(value)
+	local pairs = { ["{"] = "}", ['"'] = '"' }
+	local open = value:sub(1, 1)
+	if pairs[open] == value:sub(-1, -1) then return value:sub(2, -2) end
+	return value
+end
+
+--- Resolve a relative path against a base directory
+---@param base string
+---@param path string
+---@return string|nil
+local function resolve_path(base, path)
+	if not path or path == "" or path:sub(1, 1) == "/" or path:sub(2, 2) == ":" then return path end
+	return vim.fn.fnamemodify(base .. "/" .. path, ":p")
+end
 
 ---@type table
 local backends = {}
@@ -24,13 +43,13 @@ end
 extractors = {
 	bibtex_include = function(node, bufnr, dir)
 		local arg = extract_curly_arg(node, bufnr)
-		return arg and u.resolve_path(dir, arg .. ".bib")
+		return arg and resolve_path(dir, arg .. ".bib")
 	end,
 	line_comment = function(node, bufnr, dir)
 		local text = vim.treesitter.get_node_text(node, bufnr)
 		local root_file = text:match(patterns.tex_root)
 		if not root_file then return nil end
-		local rootpath = u.resolve_path(dir, root_file)
+		local rootpath = resolve_path(dir, root_file)
 		if not rootpath then return nil end
 		if vim.fn.filereadable(rootpath) ~= 1 then return nil end
 		local rootbuf = vim.fn.bufadd(rootpath)
@@ -45,7 +64,7 @@ finders = {
 	markdown = function(bufnr, dir)
 		local yaml = require("bib.yaml")
 		local ybib = yaml.field("bibliography", bufnr)
-		return ybib and u.resolve_path(dir, ybib)
+		return ybib and resolve_path(dir, ybib)
 	end,
 	tex = function(bufnr, dir) return backends.find_tex_bib(dir, bufnr) end,
 }
@@ -71,7 +90,7 @@ function backends.collect_strings(buf, root)
 		local value_node = match[ids["value"]][1]
 		if not name_node or not value_node then return strings end
 		local name = vim.trim(vim.treesitter.get_node_text(name_node, buf))
-		local value = u.strip_value(vim.treesitter.get_node_text(value_node, buf))
+		local value = strip_value(vim.treesitter.get_node_text(value_node, buf))
 		if name ~= "" then strings[name] = value end
 		return strings
 	end)
@@ -82,14 +101,14 @@ end
 ---@param strings table<string, string>
 ---@return string
 function backends.resolve(value, strings)
-	value = u.strip_value(value)
+	value = strip_value(value)
 	local resolved = strings[value]
 	if resolved then return resolved end
 	return table.concat(vim
 		.iter(vim.split(value, patterns.concat_sep))
 		:map(function(part)
 			if not part then return "" end
-			local s = u.strip_value(part)
+			local s = strip_value(part)
 			local found = strings[s]
 			return found or s
 		end)
@@ -172,7 +191,7 @@ function backends.find_bib_file(bufnr)
 
 	local json_path = vim.fs.joinpath(root, ".bib.json")
 	local ok, data = pcall(function() return vim.json.decode(table.concat(vim.fn.readfile(json_path), "\n")) end)
-	if ok and data and data.bibliography then return u.resolve_path(root, data.bibliography) end
+	if ok and data and data.bibliography then return resolve_path(root, data.bibliography) end
 
 	return nil
 end
