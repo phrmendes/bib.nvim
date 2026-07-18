@@ -28,6 +28,7 @@ vim
 	.iter({
 		{ name = "extracts key from @citation", content = "see @smith2020 for details\n", col = 6, expected = "smith2020" },
 		{ name = "handles keys with hyphens", content = "see @smith-jones-2020 for details\n", col = 6, expected = "smith-jones-2020" },
+		{ name = "extracts composite key", content = "see @ABC123#smith2020 for details\n", col = 6, expected = "ABC123#smith2020" },
 	})
 	:each(function(c)
 		T["key_at"][c.name] = function()
@@ -44,6 +45,7 @@ T["partial_key"] = test.new_set()
 vim
 	.iter({
 		{ name = "extracts partial markdown key", content = "see @smit\n", col = 8, expected = "smi" },
+		{ name = "extracts partial composite key", content = "see @ABC#smit\n", col = 12, expected = "ABC#smi" },
 		{ name = "returns nil when no partial key", content = "just text\n", col = 5, expected = vim.NIL },
 	})
 	:each(function(c)

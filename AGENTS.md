@@ -11,7 +11,7 @@
 Every backend implements these five functions:
 
 ```lua
-load(bufnr)         → boolean        # open the data source
+load(bufnr)         → nil | throws error  # open the data source
 match(prefix)       → BibEntry[]     # case-insensitive prefix match
 get(key)            → BibEntry|nil   # single entry lookup
 definition(key)     → {uri, range}   # LSP go-to location
@@ -34,6 +34,7 @@ hover(key)          → string|nil     # formatted hover content
 - `---@type` on every table: `---@type table<string, BibEntry>`
 - `---@param` and `---@return` on every function
 - `---@class` for named structured types
+- Types go in `types.lua` when consumed by multiple modules (e.g., `bib/types.lua`, `bib/backends/types.lua`). Keep in-module otherwise.
 
 ## Diagnostics
 

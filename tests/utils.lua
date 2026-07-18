@@ -59,7 +59,7 @@ utils.setup_bib = function(child, bib_content)
 	utils.write_file(child, vim.fs.joinpath(dir, "refs.bib"), bib_content)
 	utils.write_file(child, vim.fs.joinpath(dir, "paper.md"), "---\nbibliography: refs.bib\n---\n")
 	child.lua(string.format("vim.cmd.edit(%q)", vim.fs.joinpath(dir, "paper.md")))
-	child.lua("require('bib.backends.bib').load(vim.api.nvim_get_current_buf())")
+	child.lua("pcall(require('bib.backends.bib').load, vim.api.nvim_get_current_buf())")
 	return dir
 end
 

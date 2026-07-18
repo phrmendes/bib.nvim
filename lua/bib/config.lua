@@ -1,32 +1,21 @@
----@class BibConfig
----@field filetypes string[] Filetypes to enable on
----@field zotero? BibZoteroConfig
-
----@class BibZoteroConfig
----@field database? string Path to zotero.sqlite
+local c = require("bib.constants")
 
 ---@type BibConfig
 local defaults = {
-	filetypes = { "markdown", "tex" },
+	filetypes = c.DEFAULT_FILETYPES,
 	zotero = {},
 }
 
+---@type table
 local config = {}
-
----@type BibConfig
-config.options = vim.deepcopy(defaults)
 
 --- Setup bib.nvim
 ---@param opts? BibConfig
 function config.setup(opts)
-	config.options = vim.tbl_deep_extend("force", defaults, opts or {})
+	config.options = vim.tbl_deep_extend("force", vim.deepcopy(defaults), opts or {})
 
 	vim.lsp.config("bib_ls", {
-		cmd = function()
-			local lsp = require("bib.lsp")
-			return lsp.server()
-		end,
-		filetypes = config.options.filetypes,
+		cmd = function() return require("bib.lsp").server() end,
 	})
 
 	vim.api.nvim_create_autocmd("FileType", {

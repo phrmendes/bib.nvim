@@ -22,7 +22,7 @@ vim
 			if c.has_bib then tu.write_file(child, vim.fs.joinpath(dir, "refs.bib"), entry) end
 			tu.write_file(child, md, c.has_bib and "---\nbibliography: refs.bib\n---\n" or "# No bib")
 			child.lua(string.format("vim.cmd.edit(%q)", md))
-			eq(child.lua_get("require('bib.backends.bib').load(vim.api.nvim_get_current_buf())"), c.expected)
+			eq(child.lua_get(string.format("pcall(require('bib.backends.bib').load, %d)", vim.api.nvim_get_current_buf())), c.expected)
 		end
 	end)
 
@@ -58,17 +58,28 @@ end
 
 T["hover"] = test.new_set()
 
-vim
-	.iter({
-		{ name = "contains author", expr = "require('bib.backends.bib').hover('smith2020'):find('John Smith') ~= nil", expected = true },
-		{ name = "contains title", expr = "require('bib.backends.bib').hover('smith2020'):find('# Title') ~= nil", expected = true },
-		{ name = "contains abstract", expr = "require('bib.backends.bib').hover('smith2020'):find('---') == nil", expected = true },
-	})
-	:each(function(c)
-		T["hover"][c.name] = function()
-			tu.setup_bib(child, entry)
-			eq(child.lua_get(c.expr), c.expected)
-		end
-	end)
+T["hover"]["format is author - title - year"] = function()
+	tu.setup_bib(child, entry)
+	eq(child.lua_get("require('bib.backends.bib').hover('smith2020')"), "# John Smith - Test - 2020")
+end
+
+T["hover"]["contains author"] = function()
+	tu.setup_bib(child, entry)
+	eq(child.lua_get("require('bib.backends.bib').hover('smith2020'):find('John Smith') ~= nil"), true)
+end
+
+T["hover"]["includes abstract when present"] = function()
+	local with_abstract = "@article{test2020,\n  author = {Jane Doe},\n  title = {With Abstract},\n  year = {2020},\n  abstract = {A test  abstract.}\n}"
+	tu.setup_bib(child, with_abstract)
+	local hover = child.lua_get("require('bib.backends.bib').hover('test2020')")
+	eq(hover:find("---") ~= nil, true)
+	eq(hover:find("A test abstract.") ~= nil, true)
+end
+
+T["definition"]["returns correct 0-indexed line range"] = function()
+	tu.setup_bib(child, entry)
+	eq(child.lua_get("require('bib.backends.bib').definition('smith2020').range.start.line"), 0)
+	eq(child.lua_get("require('bib.backends.bib').definition('smith2020').range.start.character"), 0)
+end
 
 return T

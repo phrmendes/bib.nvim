@@ -1,6 +1,7 @@
-local q = require("bib.query")
-local queries = require("bib.queries")
+local queries = require("bib.ts.queries")
+local ts = require("bib.ts")
 
+---@type table
 local yaml = {}
 
 local field_query = queries.yaml_field
@@ -35,7 +36,7 @@ function yaml.parse_text(text, field)
 	end
 
 	local root = parser:parse()[1]:root()
-	local result = q.fold_matches(field_query, root, buf, nil, function(acc, match, ids)
+	local result = ts.fold(field_query, root, buf, nil, function(acc, match, ids)
 		if acc then return acc end
 		local key_node = match[ids["key"]][1]
 		local value_node = match[ids["value"]][1]
