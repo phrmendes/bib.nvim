@@ -102,4 +102,36 @@ T["zotero_backend"]["auto-dispatch uses bib when available"] = function()
 	eq(child.lua_get("_G._backend.get('test') ~= nil"), true)
 end
 
+T["zotero_failures"] = test.new_set()
+
+T["zotero_failures"]["load fails when database not found"] = function()
+	local dir = tu.temp_dir()
+	local md = vim.fs.joinpath(dir, "paper.md")
+	tu.write_file(child, md, "# Hello")
+	child.lua(string.format("vim.cmd.edit(%q)", md))
+	child.lua(string.format("require('bib.config').setup({ zotero = { database = %q } })", vim.fs.joinpath(dir, "zotero.sqlite")))
+	eq(child.lua_get("pcall(require('bib.backends.zotero').load)"), false)
+end
+
+T["zotero_failures"]["load fails when database is empty"] = function()
+	local dir = tu.temp_dir()
+	tu.setup_zotero_db_empty(child, dir)
+	local md = vim.fs.joinpath(dir, "paper.md")
+	tu.write_file(child, md, "# Hello")
+	child.lua(string.format("vim.cmd.edit(%q)", md))
+	child.lua(string.format("require('bib.config').setup({ zotero = { database = %q } })", vim.fs.joinpath(dir, "zotero.sqlite")))
+	local ok, err = child.lua_get("pcall(require('bib.backends.zotero').load)")
+	eq(ok, false)
+end
+
+T["zotero_failures"]["load fails with malformed schema"] = function()
+	local dir = tu.temp_dir()
+	tu.setup_zotero_db_malformed(child, dir)
+	local md = vim.fs.joinpath(dir, "paper.md")
+	tu.write_file(child, md, "# Hello")
+	child.lua(string.format("vim.cmd.edit(%q)", md))
+	child.lua(string.format("require('bib.config').setup({ zotero = { database = %q } })", vim.fs.joinpath(dir, "zotero.sqlite")))
+	eq(child.lua_get("pcall(require('bib.backends.zotero').load)"), false)
+end
+
 return T

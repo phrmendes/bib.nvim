@@ -85,4 +85,53 @@ T["conceal"]["handles multiple prefixes on one line"] = function()
 	eq(extmarks[6][3], 43)
 end
 
+T["conceal"]["extmarks update after text changed"] = function()
+	local dir = tu.temp_dir()
+	local md = vim.fs.joinpath(dir, "paper.md")
+	tu.write_file(child, md, "see @ABC123#smith2020 for details")
+	child.lua(string.format("vim.cmd.edit(%q)", md))
+	child.lua("require('bib.conceal').setup(vim.api.nvim_get_current_buf())")
+	child.lua("vim.api.nvim_exec_autocmds('BufWinEnter', { buffer = 0 })")
+
+	-- Replace the line with new citekey
+	child.lua("vim.api.nvim_buf_set_lines(0, 0, 1, false, {'see @ABC123#jones2021 for details'})")
+	child.lua("vim.api.nvim_exec_autocmds('TextChanged', { buffer = 0 })")
+
+	local extmarks = child.lua([[
+		local ns = vim.api.nvim_get_namespaces()["bib_conceal"]
+		local marks = vim.api.nvim_buf_get_extmarks(0, ns, 0, -1, { details = true })
+		table.sort(marks, function(a, b) return a[2] < b[2] end)
+		return marks
+	]])
+
+	eq(#extmarks, 3)
+
+	-- Prefix extmarks unchanged
+	eq(extmarks[1][2], 4) -- @
+	eq(extmarks[2][2], 5) -- ABC123# (concealed)
+	eq(extmarks[2][4].conceal, "")
+
+	-- Citekey extmark now covers "jones2021" at cols 12-21
+	eq(extmarks[3][2], 12)
+	eq(extmarks[3][3], 21)
+	eq(extmarks[3][4].hl_group, "BibCiteKey")
+end
+
+T["conceal"]["extmarks persist after BufWritePost"] = function()
+	local extmarks = setup_conceal("see @ABC123#smith2020 for details")
+
+	-- Trigger BufWritePost — content unchanged
+	child.lua("vim.api.nvim_exec_autocmds('BufWritePost', { buffer = 0 })")
+
+	local marks = child.lua([[
+		local ns = vim.api.nvim_get_namespaces()["bib_conceal"]
+		local marks = vim.api.nvim_buf_get_extmarks(0, ns, 0, -1, { details = true })
+		table.sort(marks, function(a, b) return a[2] < b[2] end)
+		return marks
+	]])
+
+	eq(#marks, 3)
+	eq(marks[3][4].hl_group, "BibCiteKey")
+end
+
 return T

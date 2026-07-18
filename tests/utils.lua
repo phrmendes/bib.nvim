@@ -101,4 +101,46 @@ utils.setup_zotero_db = function(child, dir)
 	return db_path
 end
 
+--- Set up an empty Zotero database (tables but no data)
+---@param child MiniTest.child
+---@param dir string
+---@return string db_path
+utils.setup_zotero_db_empty = function(child, dir)
+	local db_path = vim.fs.joinpath(dir, "zotero.sqlite")
+	local sql = string.format(
+		[[
+		local sqlite = require("sqlite")
+		local db = sqlite.new("%s"); db:open()
+		db:eval("CREATE TABLE items (itemID INTEGER PRIMARY KEY, itemTypeID INT, key TEXT)")
+		db:eval("CREATE TABLE itemData (itemID INT, fieldID INT, valueID INT)")
+		db:eval("CREATE TABLE creators (creatorID INTEGER PRIMARY KEY, lastName TEXT, firstName TEXT)")
+		db:eval("CREATE TABLE creatorTypes (creatorTypeID INTEGER PRIMARY KEY, creatorType TEXT)")
+		db:eval("CREATE TABLE itemCreators (itemID INT, creatorID INT, creatorTypeID INT)")
+		db:close()
+	]],
+		db_path
+	)
+	child.lua(sql)
+	return db_path
+end
+
+--- Set up a malformed Zotero database (wrong schema)
+---@param child MiniTest.child
+---@param dir string
+---@return string db_path
+utils.setup_zotero_db_malformed = function(child, dir)
+	local db_path = vim.fs.joinpath(dir, "zotero.sqlite")
+	local sql = string.format(
+		[[
+		local sqlite = require("sqlite")
+		local db = sqlite.new("%s"); db:open()
+		db:eval("CREATE TABLE foo (x)")
+		db:close()
+	]],
+		db_path
+	)
+	child.lua(sql)
+	return db_path
+end
+
 return utils
