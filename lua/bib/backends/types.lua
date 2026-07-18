@@ -18,3 +18,4 @@
 ---@field get fun(key: string): BibEntry | ZoteroEntry | nil
 ---@field definition fun(key: string): {uri: string, range: table} | nil
 ---@field hover fun(key: string): string | nil
+---@field search fun(query: string): BibEntry[] | ZoteroEntry[]

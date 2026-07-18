@@ -3,7 +3,6 @@ local patterns = require("bib.patterns")
 local queries = require("bib.ts.queries")
 local ts = require("bib.ts")
 local u = require("bib.utils")
-local yaml = require("bib.yaml")
 
 ---@type table
 local backends = {}
@@ -44,6 +43,7 @@ extractors = {
 
 finders = {
 	markdown = function(bufnr, dir)
+		local yaml = require("bib.yaml")
 		local ybib = yaml.field("bibliography", bufnr)
 		return ybib and u.resolve_path(dir, ybib)
 	end,

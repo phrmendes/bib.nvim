@@ -1,8 +1,8 @@
+local lazy = require("bib.lazy")
 local ts = require("bib.ts")
-local u = require("bib.utils")
 
 ---@type table<string, vim.treesitter.Query>
-return u.lazy({
+return lazy({
 	bibtex_strings = function() return ts.load("bibtex", "strings") end,
 	bibtex_entries = function() return ts.load("bibtex", "entries") end,
 	yaml_field = function() return ts.load("yaml", "field") end,

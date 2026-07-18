@@ -134,4 +134,40 @@ T["zotero_failures"]["load fails with malformed schema"] = function()
 	eq(child.lua_get("pcall(require('bib.backends.zotero').load)"), false)
 end
 
+T["zotero_search"] = test.new_set()
+
+T["zotero_search"]["matches by citekey substring"] = function()
+	local dir = tu.temp_dir()
+	tu.setup_zotero_db(child, dir)
+	local md = vim.fs.joinpath(dir, "paper.md")
+	tu.write_file(child, md, "# Hello")
+	child.lua(string.format("vim.cmd.edit(%q)", md))
+	child.lua(string.format("require('bib.config').setup({ zotero = { database = %q } })", vim.fs.joinpath(dir, "zotero.sqlite")))
+	child.lua("pcall(require('bib.backends.zotero').load)")
+	eq(child.lua_get("#require('bib.backends.zotero').search('smit')"), 1)
+	eq(child.lua_get("require('bib.backends.zotero').search('smit')[1].citekey"), "smith2020")
+end
+
+T["zotero_search"]["matches by title substring"] = function()
+	local dir = tu.temp_dir()
+	tu.setup_zotero_db(child, dir)
+	local md = vim.fs.joinpath(dir, "paper.md")
+	tu.write_file(child, md, "# Hello")
+	child.lua(string.format("vim.cmd.edit(%q)", md))
+	child.lua(string.format("require('bib.config').setup({ zotero = { database = %q } })", vim.fs.joinpath(dir, "zotero.sqlite")))
+	child.lua("pcall(require('bib.backends.zotero').load)")
+	eq(child.lua_get("#require('bib.backends.zotero').search('Test')"), 1)
+end
+
+T["zotero_search"]["matches by author substring"] = function()
+	local dir = tu.temp_dir()
+	tu.setup_zotero_db(child, dir)
+	local md = vim.fs.joinpath(dir, "paper.md")
+	tu.write_file(child, md, "# Hello")
+	child.lua(string.format("vim.cmd.edit(%q)", md))
+	child.lua(string.format("require('bib.config').setup({ zotero = { database = %q } })", vim.fs.joinpath(dir, "zotero.sqlite")))
+	child.lua("pcall(require('bib.backends.zotero').load)")
+	eq(child.lua_get("#require('bib.backends.zotero').search('John')"), 1)
+end
+
 return T

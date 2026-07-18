@@ -1,5 +1,4 @@
 local queries = require("bib.ts.queries")
-local ts = require("bib.ts")
 
 ---@type table
 local yaml = {}
@@ -26,6 +25,8 @@ end
 ---@param field string
 ---@return string|nil
 function yaml.parse_text(text, field)
+	local ts = require("bib.ts")
+
 	local buf = vim.api.nvim_create_buf(false, true)
 	vim.api.nvim_buf_set_lines(buf, 0, -1, false, vim.split(text, "\n"))
 

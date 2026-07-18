@@ -1,22 +1,6 @@
 ---@type table
 local u = {}
 
---- Lazy-load table — loads values on first access, caches with rawset
----@generic T : table
----@param loaders table<string, fun(): T>
----@return table<string, T>
-function u.lazy(loaders)
-	return setmetatable({}, {
-		__index = function(t, k)
-			local loader = loaders[k]
-			if not loader then return nil end
-			local v = loader()
-			rawset(t, k, v)
-			return v
-		end,
-	})
-end
-
 --- Strip surrounding braces or quotes from a value
 ---@param value string
 ---@return string

@@ -1,7 +1,5 @@
-local bib = require("bib.backends.bib")
 local c = require("bib.constants")
 local u = require("bib.utils")
-local zotero = require("bib.backends.zotero")
 
 local lsp = {}
 
@@ -9,12 +7,15 @@ local lsp = {}
 local state = {
 	name = "bib_ls",
 	stopped = true,
-	backend = bib,
+	backend = nil,
 }
 
 --- Pick the best backend for a buffer (bib first, zotero fallback)
 ---@param bufnr integer
 function lsp.pick(bufnr)
+	local bib = require("bib.backends.bib")
+	local zotero = require("bib.backends.zotero")
+
 	vim.iter({ bib, zotero }):find(function(backend)
 		local ok, err = pcall(backend.load, bufnr)
 

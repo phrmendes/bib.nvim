@@ -82,4 +82,23 @@ T["definition"]["returns correct 0-indexed line range"] = function()
 	eq(child.lua_get("require('bib.backends.bib').definition('smith2020').range.start.character"), 0)
 end
 
+T["search"] = test.new_set()
+
+T["search"]["matches by citekey substring"] = function()
+	tu.setup_bib(child, both)
+	eq(child.lua_get("#require('bib.backends.bib').search('smit')"), 1)
+	eq(child.lua_get("require('bib.backends.bib').search('smit')[1].key"), "smith2020")
+end
+
+T["search"]["matches by title substring"] = function()
+	tu.setup_bib(child, both)
+	eq(child.lua_get("#require('bib.backends.bib').search('Test')"), 1)
+end
+
+T["search"]["matches by author substring"] = function()
+	tu.setup_bib(child, both)
+	eq(child.lua_get("#require('bib.backends.bib').search('jane')"), 1)
+	eq(child.lua_get("require('bib.backends.bib').search('jane')[1].key"), "jones2021")
+end
+
 return T

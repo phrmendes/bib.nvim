@@ -70,6 +70,23 @@ function zotero.match(prefix)
 	return vim.iter(pairs(state.entries)):filter(function(_, e) return e.citekey:lower():find(lower, 1, true) == 1 end):map(function(_, e) return e end):totable()
 end
 
+--- Search entries by substring (case-insensitive, matches citekey/title/author)
+---@param query string
+---@return ZoteroEntry[]
+function zotero.search(query)
+	local lower = query:lower()
+	return vim
+		.iter(pairs(state.entries))
+		:filter(function(_, e)
+			if e.citekey:lower():find(lower, 1, true) then return true end
+			if e.fields.title and e.fields.title:lower():find(lower, 1, true) then return true end
+			if e.fields.author and e.fields.author:lower():find(lower, 1, true) then return true end
+			return false
+		end)
+		:map(function(_, e) return e end)
+		:totable()
+end
+
 --- Get a single entry by composite key
 ---@param key string
 ---@return ZoteroEntry|nil
