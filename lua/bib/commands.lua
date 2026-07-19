@@ -1,6 +1,6 @@
 local async = require("async")
 
-local ui_select = async.wrap(vim.ui.select, 3)
+local ui_select = async.wrap(3, vim.ui.select)
 
 ---@type table
 local commands = {}
