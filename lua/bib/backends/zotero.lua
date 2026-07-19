@@ -92,6 +92,12 @@ end
 ---@return ZoteroEntry|nil
 function zotero.get(key) return state.entries[key:gsub(patterns.zotkey_strip, "")] end
 
+--- Get all entries
+---@return ZoteroEntry[]
+function zotero.all()
+	return vim.iter(pairs(state.entries)):map(function(_, e) return e end):totable()
+end
+
 --- Get go-to-definition URI for a key
 ---@param key string
 ---@return {uri: string, range: table}|nil

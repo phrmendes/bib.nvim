@@ -36,6 +36,12 @@ end
 ---@return BibEntry|nil
 function bib.get(key) return state.entries[key] end
 
+--- Get all entries
+---@return BibEntry[]
+function bib.all()
+	return vim.iter(pairs(state.entries)):map(function(_, e) return e end):totable()
+end
+
 --- Search entries by substring (case-insensitive, matches key/title/author)
 ---@param query string
 ---@return BibEntry[]

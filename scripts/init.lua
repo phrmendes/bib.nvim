@@ -31,6 +31,14 @@ if #vim.api.nvim_list_uis() == 0 then
 	end
 
 	if not vim.iter(vim.opt.runtimepath:get()):find(function(p) return p == sqlite_path end) then vim.opt.runtimepath:append(sqlite_path) end
+
+	local async_path = vim.fs.joinpath(packages_path, "async.nvim")
+	if not vim.uv.fs_stat(async_path) then
+		local out = vim.system({ "git", "clone", "--filter=blob:none", "https://github.com/lewis6991/async.nvim", async_path }):wait()
+		if out.code ~= 0 then vim.notify("bib.nvim: failed to clone async.nvim", vim.log.levels.WARN) end
+	end
+	if not vim.iter(vim.opt.runtimepath:get()):find(function(p) return p == async_path end) then vim.opt.runtimepath:append(async_path) end
+
 	local pkg_rtp = vim.fs.joinpath(vim.uv.cwd(), packages_path)
 	if not vim.iter(vim.opt.runtimepath:get()):find(function(p) return p == pkg_rtp end) then vim.opt.runtimepath:append(pkg_rtp) end
 
