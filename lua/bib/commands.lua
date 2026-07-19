@@ -1,7 +1,5 @@
 local async = require("async")
 
-local ui_select = async.wrap(3, vim.ui.select)
-
 ---@type table
 local commands = {}
 
@@ -31,6 +29,7 @@ function commands.search(args)
 	end
 
 	async.run(function()
+		local ui_select = async.wrap(3, vim.ui.select)
 		local items = {}
 
 		if backend == "zotero" then
