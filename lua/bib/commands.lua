@@ -1,5 +1,3 @@
-local async = require("async")
-
 ---@type table
 local commands = {}
 
@@ -28,8 +26,7 @@ function commands.search(args)
 		return
 	end
 
-	async.run(function()
-		local ui_select = async.wrap(3, vim.ui.select)
+	vim.schedule(function()
 		local items = {}
 
 		if backend == "zotero" then
@@ -59,7 +56,7 @@ function commands.search(args)
 			return
 		end
 
-		local entry = ui_select(items, {
+		vim.ui.select(items, {
 			prompt = "Results:",
 			format_item = function(e)
 				local label = string.format("%s  %s", e.citekey or e.key, e.fields.title or "")
@@ -67,12 +64,11 @@ function commands.search(args)
 				if #label > 100 then label = label:sub(1, 97) .. "..." end
 				return label
 			end,
-		})
-
-		if not entry then return end
-
-		vim.api.nvim_put({ entry.citekey or entry.key }, "c", true)
-	end, function() end)
+		}, function(entry)
+			if not entry then return end
+			vim.api.nvim_put({ entry.citekey or entry.key }, "c", true)
+		end)
+	end)
 end
 
 return commands
