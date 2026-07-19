@@ -1,27 +1,30 @@
+local p = require("bib.patterns")
+local u = require("bib.utils")
+
 ---@type table
 local commands = {}
 
---- Search bib (or zotero with backend=zotero) and insert citation key
+--- Search bib (or zotero) and open or insert citation key
 ---@param args string
 function commands.search(args)
 	args = vim.trim(args or "")
 
-	local backend = nil
+	local zotero_only = false
 	local query = args
 
-	if args:match("^backend=zotero%s") then
-		backend = "zotero"
-		query = args:gsub("^backend=zotero%s+", "")
-	elseif args == "backend=zotero" then
-		backend = "zotero"
+	if args:find(p.search_zotero) == 1 then
+		zotero_only = true
+		query = args:gsub(p.search_zotero, "", 1)
+	elseif args == "zotero" then
+		zotero_only = true
 		query = ""
 	end
 
 	if query == "" then
-		local prompt = backend == "zotero" and "Zotero search: " or "Search: "
+		local prompt = zotero_only and "Zotero search: " or "Search: "
 		vim.ui.input({ prompt = prompt }, function(input)
 			if not input or input == "" then return end
-			commands.search((backend and "backend=zotero " or "") .. input)
+			commands.search((zotero_only and "zotero " or "") .. input)
 		end)
 		return
 	end
@@ -29,7 +32,7 @@ function commands.search(args)
 	vim.schedule(function()
 		local items = {}
 
-		if backend == "zotero" then
+		if zotero_only then
 			local zotero = require("bib.backends.zotero")
 			local ok = pcall(zotero.load)
 
@@ -41,7 +44,8 @@ function commands.search(args)
 			items = zotero.search(query)
 		else
 			local bib = require("bib.backends.bib")
-			items = bib.search(query)
+			local ok = pcall(bib.load, vim.api.nvim_get_current_buf())
+			if ok then items = bib.search(query) end
 
 			if #items == 0 then
 				local zotero = require("bib.backends.zotero")
@@ -59,14 +63,21 @@ function commands.search(args)
 		vim.ui.select(items, {
 			prompt = "Results:",
 			format_item = function(e)
-				local label = string.format("%s  %s", e.citekey or e.key, e.fields.title or "")
+				local label = string.format("%s  %s", u.display_key(e), e.fields.title or "")
 				if e.fields.author then label = label .. "  (" .. e.fields.author .. ")" end
 				if #label > 100 then label = label:sub(1, 97) .. "..." end
 				return label
 			end,
 		}, function(entry)
 			if not entry then return end
-			vim.api.nvim_put({ entry.citekey or entry.key }, "c", true)
+
+			if entry.zotkey then
+				vim.ui.open("zotero://select/library/items/" .. entry.zotkey)
+			else
+				local bib = require("bib.backends.bib")
+				local loc = bib.definition(entry.key)
+				if loc then vim.lsp.util.jump_to_location(loc) end
+			end
 		end)
 	end)
 end
