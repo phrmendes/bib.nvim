@@ -22,7 +22,9 @@ vim.pack.add({
 })
 ```
 
-Requires [pandoc](https://pandoc.org) and [sqlite.lua](https://github.com/kkharji/sqlite.lua). Zotero users also need [BetterBibTeX](https://github.com/retorquere/zotero-better-bibtex) for citation key generation. Tree-sitter parsers for `bibtex`, `latex`, `markdown`, `markdown_inline`, and `yaml` are provided via `devenv.nix`.
+Requires [pandoc](https://pandoc.org) and [sqlite.lua](https://github.com/kkharji/sqlite.lua). Zotero users also need [BetterBibTeX](https://github.com/retorquere/zotero-better-bibtex) for citation key generation.
+
+Tree-sitter parsers required: `bibtex`, `latex`, `markdown`, `markdown_inline`, `yaml`.
 
 ## Quick start
 
