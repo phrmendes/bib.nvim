@@ -1,26 +1,24 @@
 local patterns = require("bib.patterns")
-local u = require("bib.utils")
+local find_bib_file = require("bib.utils.backends").find_bib_file
+local parse = require("bib.utils.backends").parse
 
+---@type table
 local bib = {}
 
----@type {entries: table<string, BibEntry>, path: string|nil}
-local state = {
-	entries = {},
-	path = nil,
-}
+---@type {entries: table<string, BibEntry>, path: string, default: string}
+local state = { entries = {}, default = "references.bib" }
 
 --- Load state.entries from the .bib file for a buffer
 ---@param bufnr integer
 ---@return nil
 function bib.load(bufnr)
-	local found = u.backends.find_bib_file(bufnr)
-	if not found then error("no .bib file found for buffer " .. bufnr) end
-
-	local parsed = u.backends.parse(found)
-	if not parsed then error("failed to parse " .. found) end
+	local bufname = vim.api.nvim_buf_get_name(bufnr)
+	local dir = bufname ~= "" and vim.fn.fnamemodify(bufname, ":p:h") or vim.fn.getcwd()
+	local found = find_bib_file(bufnr) or vim.fn.fnamemodify(dir .. "/" .. state.default, ":p")
+	local parsed = parse(found)
 
 	state.path = found
-	state.entries = parsed
+	state.entries = parsed or {}
 end
 
 --- Get state.entries matching a prefix (case-insensitive)
@@ -63,9 +61,11 @@ end
 ---@param key string
 ---@return {uri: string, range: table}|nil
 function bib.definition(key)
-	if not state.path then return nil end
+	if not state.path then return end
+
 	local entry = state.entries[key]
-	if not entry then return nil end
+	if not entry then return end
+
 	return {
 		uri = vim.uri_from_fname(state.path),
 		range = {
@@ -80,16 +80,19 @@ end
 ---@return string|nil
 function bib.hover(key)
 	local entry = state.entries[key]
-	if not entry then return nil end
+	if not entry then return end
+
 	local header = {}
 	if entry.fields.author then table.insert(header, entry.fields.author) end
 	if entry.fields.title then table.insert(header, entry.fields.title) end
 	if entry.fields.year then table.insert(header, entry.fields.year) end
+
 	local parts = { "# " .. table.concat(header, " - ") }
 	if entry.fields.abstract then
 		local abstract = entry.fields.abstract:gsub(patterns.whitespace, " ")
 		table.insert(parts, "---\n" .. abstract)
 	end
+
 	return table.concat(parts, "\n\n")
 end
 

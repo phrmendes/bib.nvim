@@ -12,8 +12,8 @@ T["load"] = test.new_set()
 
 vim
 	.iter({
-		{ name = "returns true when bib found", has_bib = true, expected = true },
-		{ name = "returns false when no bib", has_bib = false, expected = false },
+		{ name = "loads entries when bib found", has_bib = true, expected = true },
+		{ name = "empty entries when no bib", has_bib = false, expected = false },
 	})
 	:each(function(c)
 		T["load"][c.name] = function()
@@ -22,7 +22,8 @@ vim
 			if c.has_bib then tu.write_file(child, vim.fs.joinpath(dir, "refs.bib"), entry) end
 			tu.write_file(child, md, c.has_bib and "---\nbibliography: refs.bib\n---\n" or "# No bib")
 			child.lua(string.format("vim.cmd.edit(%q)", md))
-			eq(child.lua_get(string.format("pcall(require('bib.backends.bib').load, %d)", vim.api.nvim_get_current_buf())), c.expected)
+			child.lua(string.format("require('bib.backends.bib').load(%d)", vim.api.nvim_get_current_buf()))
+			eq(child.lua_get("#require('bib.backends.bib').all() > 0"), c.expected)
 		end
 	end)
 

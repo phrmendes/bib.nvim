@@ -1,1 +1,0 @@
-require("bib").setup()

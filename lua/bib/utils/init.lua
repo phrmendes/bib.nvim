@@ -1,12 +1,45 @@
 ---@type table
-local u = {}
+local utils = {}
+local p = require("bib.patterns")
 
 --- Prefer citekey over key for display
 ---@param entry table
 ---@return string
-function u.display_key(entry) return entry.citekey or entry.key end
+function utils.display_key(entry) return entry.citekey or entry.key end
 
-u.backends = require("bib.utils.backends")
-u.lsp = require("bib.utils.lsp")
+--- Format entry for picker display: author - id - title, 50 chars max
+---@param e table
+---@return string
+function utils.format_item(e)
+	local author = e.fields.author or "?"
+	local authors = vim.split(author, ", ")
+	local lastnames = vim.iter(authors):map(function(a) return a:match(p.lastname) or a end):totable()
 
-return u
+	if #lastnames > 2 then
+		author = lastnames[1] .. " et al"
+	else
+		author = table.concat(lastnames, ", ")
+	end
+
+	local id = e.citekey or e.zotkey or e.key
+	local title = e.fields.title or "Untitled"
+	return string.sub(string.format("%s - %s - %s", author, id, title), 1, 50)
+end
+
+--- Dispatch selected entry to the right action (zotero URI or LSP jump)
+---@param item {display: string, key: string?, zotkey: string?}|nil
+function utils.handle_selection(item)
+	if not item then return end
+
+	if item.zotkey then
+		vim.ui.open("zotero://select/library/items/" .. item.zotkey)
+		return
+	end
+
+	if item.key then
+		local loc = require("bib.backends.bib").definition(item.key)
+		if loc then vim.lsp.util.show_document({ uri = loc.uri, selection = loc.range }, nil, { focus = true }) end
+	end
+end
+
+return utils

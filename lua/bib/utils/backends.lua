@@ -1,5 +1,4 @@
 local patterns = require("bib.patterns")
----@type table<string, vim.treesitter.Query>
 local queries = require("bib.ts.queries")
 local ts = require("bib.ts")
 
@@ -14,24 +13,10 @@ local function strip_value(value)
 	return value
 end
 
---- Resolve a relative path against a base directory
----@param base string
----@param path string
+--- Recursively extract text from a curly_group or path node
+---@param node TSNode
+---@param bufnr integer
 ---@return string|nil
-local function resolve_path(base, path)
-	if not path or path == "" or path:sub(1, 1) == "/" or path:sub(2, 2) == ":" then return path end
-	return vim.fn.fnamemodify(base .. "/" .. path, ":p")
-end
-
----@type table
-local backends = {}
-
----@type table<string, fun(bufnr: integer, dir: string): string|nil>
-local finders
-
----@type table<string, fun(node: TSNode, bufnr: integer, dir: string): string|nil>
-local extractors
-
 local function extract_curly_arg(node, bufnr)
 	return vim.iter(node:iter_children()):fold(nil, function(acc, c)
 		if acc then return acc end
@@ -40,18 +25,23 @@ local function extract_curly_arg(node, bufnr)
 	end)
 end
 
-extractors = {
+---@type table
+local backends = {}
+
+--- Tree-sitter node type → .bib path extractor for LaTeX documents
+---@type table<string, fun(node: TSNode, bufnr: integer, dir: string): string|nil>
+local extractors = {
 	bibtex_include = function(node, bufnr, dir)
 		local arg = extract_curly_arg(node, bufnr)
-		return arg and resolve_path(dir, arg .. ".bib")
+		return arg and backends.resolve_path(dir, arg .. ".bib")
 	end,
 	line_comment = function(node, bufnr, dir)
 		local text = vim.treesitter.get_node_text(node, bufnr)
 		local root_file = text:match(patterns.tex_root)
-		if not root_file then return nil end
-		local rootpath = resolve_path(dir, root_file)
-		if not rootpath then return nil end
-		if vim.fn.filereadable(rootpath) ~= 1 then return nil end
+		if not root_file then return end
+		local rootpath = backends.resolve_path(dir, root_file)
+		if not rootpath then return end
+		if vim.fn.filereadable(rootpath) ~= 1 then return end
 		local rootbuf = vim.fn.bufadd(rootpath)
 		vim.fn.bufload(rootbuf)
 		local result = backends.find_tex_bib(vim.fn.fnamemodify(rootpath, ":p:h"), rootbuf)
@@ -60,14 +50,50 @@ extractors = {
 	end,
 }
 
-finders = {
+--- Find .bib path from a .bib.json marker file
+---@param base string
+---@return string|nil
+local function find_json_bib(base)
+	local json_path = vim.fs.joinpath(base, ".bib.json")
+	local ok, data = pcall(function() return vim.json.decode(table.concat(vim.fn.readfile(json_path), "\n")) end)
+	if ok and data and data.bibliography then return backends.resolve_path(base, data.bibliography) end
+end
+
+--- Process a tree-sitter match to extract a .bib path from LaTeX
+---@param match table
+---@param bufnr integer
+---@param dir string
+---@return string|nil
+local function process_tex_match(match, bufnr, dir)
+	return vim
+		.iter(vim.tbl_values(match))
+		:map(function(nodes)
+			local node = nodes[1]
+			local f = extractors[node:type()]
+			return f and f(node, bufnr, dir)
+		end)
+		:find(function(path) return path ~= nil end)
+end
+
+--- Filetype → .bib path finder strategy
+---@type table<string, fun(bufnr: integer, dir: string): string|nil>
+local finders = {
 	markdown = function(bufnr, dir)
 		local yaml = require("bib.yaml")
 		local ybib = yaml.field("bibliography", bufnr)
-		return ybib and resolve_path(dir, ybib)
+		return ybib and backends.resolve_path(dir, ybib)
 	end,
 	tex = function(bufnr, dir) return backends.find_tex_bib(dir, bufnr) end,
 }
+
+--- Resolve a relative path against a base directory
+---@param base string
+---@param path string
+---@return string|nil
+function backends.resolve_path(base, path)
+	if not path or path == "" or path:sub(1, 1) == "/" or path:sub(2, 2) == ":" then return path end
+	return vim.fn.fnamemodify(base .. "/" .. path, ":p")
+end
 
 --- Read a SQL query from the sql/ directory
 ---@param name string
@@ -86,8 +112,8 @@ function backends.collect_strings(buf, root)
 	local ids = ts.capture_ids(queries.bibtex_strings)
 	local matches = queries.bibtex_strings:iter_matches(root, buf, 0, -1)
 	return vim.iter(matches):fold({}, function(strings, _, match)
-		local name_node = match[ids["name"]][1]
-		local value_node = match[ids["value"]][1]
+		local name_node = match[ids.name][1]
+		local value_node = match[ids.value][1]
 		if not name_node or not value_node then return strings end
 		local name = vim.trim(vim.treesitter.get_node_text(name_node, buf))
 		local value = strip_value(vim.treesitter.get_node_text(value_node, buf))
@@ -104,15 +130,11 @@ function backends.resolve(value, strings)
 	value = strip_value(value)
 	local resolved = strings[value]
 	if resolved then return resolved end
-	return table.concat(vim
-		.iter(vim.split(value, patterns.concat_sep))
-		:map(function(part)
-			if not part then return "" end
-			local s = strip_value(part)
-			local found = strings[s]
-			return found or s
-		end)
-		:totable())
+	return vim.iter(vim.split(value, patterns.concat_sep)):fold("", function(acc, part)
+		if not part then return acc end
+		local s = strip_value(part)
+		return acc .. (strings[s] or s)
+	end)
 end
 
 --- Extract entries from the AST
@@ -124,10 +146,10 @@ function backends.collect_entries(buf, root, strings)
 	local ids = ts.capture_ids(queries.bibtex_entries)
 	local matches = queries.bibtex_entries:iter_matches(root, buf, 0, -1)
 	return vim.iter(matches):fold({}, function(result, _, match)
-		local type_node = match[ids["type"]][1]
-		local key_node = match[ids["key"]][1]
-		local name_node = match[ids["name"]][1]
-		local value_node = match[ids["value"]][1]
+		local type_node = match[ids.type][1]
+		local key_node = match[ids.key][1]
+		local name_node = match[ids.name][1]
+		local value_node = match[ids.value][1]
 
 		if not type_node or not key_node or not name_node or not value_node then return result end
 		local key = vim.treesitter.get_node_text(key_node, buf)
@@ -161,7 +183,7 @@ function backends.parse(path)
 	local parser = vim.treesitter.get_parser(buf, "bibtex")
 	if not parser then
 		vim.api.nvim_buf_delete(buf, { force = true })
-		return nil
+		return
 	end
 
 	local root = parser:parse()[1]:root()
@@ -177,7 +199,7 @@ end
 ---@return string|nil
 function backends.find_bib_file(bufnr)
 	local bufname = vim.api.nvim_buf_get_name(bufnr)
-	if bufname == "" then return nil end
+	if bufname == "" then return end
 	local dir = vim.fn.fnamemodify(bufname, ":p:h")
 
 	local finder = finders[vim.bo[bufnr].filetype]
@@ -187,13 +209,7 @@ function backends.find_bib_file(bufnr)
 	end
 
 	local root = vim.fs.root(bufname, ".bib.json")
-	if not root then return nil end
-
-	local json_path = vim.fs.joinpath(root, ".bib.json")
-	local ok, data = pcall(function() return vim.json.decode(table.concat(vim.fn.readfile(json_path), "\n")) end)
-	if ok and data and data.bibliography then return resolve_path(root, data.bibliography) end
-
-	return nil
+	if root then return find_json_bib(root) end
 end
 
 --- Find .bib file for LaTeX documents using tree-sitter
@@ -202,29 +218,38 @@ end
 ---@return string|nil
 function backends.find_tex_bib(dir, bufnr)
 	local parser = vim.treesitter.get_parser(bufnr, "latex")
-	if not parser then return nil end
+	if not parser then return end
 	local root = parser:parse()[1]:root()
 	local matches = queries.latex_bibliography:iter_matches(root, bufnr, 0, -1)
 
-	return vim
-		.iter(matches)
-		:map(function(_, match)
-			return vim
-				.iter(vim.tbl_values(match))
-				:map(function(nodes) return nodes[1] end)
-				:map(function(node)
-					local f = extractors[node:type()]
-					return f and f(node, bufnr, dir)
-				end)
-				:find(function(path) return path ~= nil end)
-		end)
-		:find(function(path) return path ~= nil end)
+	return vim.iter(matches):map(function(_, match) return process_tex_match(match, bufnr, dir) end):find(function(path) return path ~= nil end)
 end
+
+--- Loaders for search commands
+---@type table
+backends.load = {
+	--- Load entries from the .bib file for the current buffer
+	---@return table[]|nil
+	bib = function()
+		local bib = require("bib.backends.bib")
+		if pcall(bib.load, vim.api.nvim_get_current_buf()) then
+			local entries = bib.all()
+			if #entries > 0 then return entries end
+		end
+	end,
+	--- Load entries from the Zotero database
+	---@return table[]|nil
+	zotero = function()
+		local zotero = require("bib.backends.zotero")
+		if not pcall(zotero.load) then return nil end
+		return zotero.all()
+	end,
+}
 
 --- Find the Zotero database path from config or default
 ---@return string|nil
 function backends.find_zotero_db()
-	local cfg = require("bib.config").get()
+	local cfg = require("bib").get()
 	if cfg.zotero and cfg.zotero.database then return cfg.zotero.database end
 	return vim.fs.joinpath(vim.env.HOME, "Zotero", "zotero.sqlite")
 end

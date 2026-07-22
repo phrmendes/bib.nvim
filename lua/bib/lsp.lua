@@ -1,35 +1,24 @@
 local c = require("bib.constants")
-local u = require("bib.utils")
+local display_key = require("bib.utils").display_key
+local position = require("bib.utils.lsp").position
+local citekey = require("bib.utils.lsp").citekey
+local citekey_at = require("bib.utils.lsp").citekey_at
 
+---@type table
 local lsp = {}
 
----@type {name: string, stopped: boolean, backend: Backend}
+---@type {name: string, stopped: boolean, backend: Backend|nil}
 local state = {
 	name = "bib_ls",
 	stopped = true,
 	backend = nil,
 }
 
---- Pick the best backend for a buffer (bib first, zotero fallback)
----@param bufnr integer
-function lsp.pick(bufnr)
-	local bib = require("bib.backends.bib")
-	local zotero = require("bib.backends.zotero")
-
-	vim.iter({ bib, zotero }):find(function(backend)
-		local ok, err = pcall(backend.load, bufnr)
-
-		if ok then
-			state.backend = backend
-			return true
-		end
-
-		vim.lsp.log.warn(err)
-	end)
-end
-
+---@type table
 local handlers = {}
 
+---@param _ table
+---@param callback BibLspCallback
 handlers["initialize"] = function(_, callback)
 	callback(nil, {
 		capabilities = {
@@ -43,16 +32,18 @@ end
 
 handlers["shutdown"] = function() state.stopped = true end
 
+---@param params BibLspParams
+---@param callback BibLspCallback
 handlers["textDocument/completion"] = function(params, callback)
 	vim.schedule(function()
-		local lnum, char, bufnr = u.lsp.pos(params)
+		local lnum, char, bufnr = position(params)
 
 		local node = vim.treesitter.get_node({ bufnr = bufnr, pos = { lnum, char } })
 
-		while node do
-			local t = node:type()
+		local skip = { fenced_code_block = true, code_fence_content = true, code_span = true }
 
-			if t == "fenced_code_block" or t == "code_fence_content" or t == "code_span" then
+		while node do
+			if skip[node:type()] then
 				callback(nil, { isIncomplete = false, items = {} })
 				return
 			end
@@ -60,7 +51,7 @@ handlers["textDocument/completion"] = function(params, callback)
 			node = node:parent()
 		end
 
-		local word = u.lsp.key_at(bufnr, lnum, char, true)
+		local word = citekey_at(bufnr, lnum, char, true)
 
 		if not word then
 			callback(nil, { isIncomplete = false, items = {} })
@@ -75,7 +66,7 @@ handlers["textDocument/completion"] = function(params, callback)
 		local items = vim
 			.iter(state.backend.match(word))
 			:map(function(entry)
-				local label = string.format("%s [%s]", u.display_key(entry), entry.type)
+				local label = string.format("%s [%s]", display_key(entry), entry.type)
 
 				if entry.fields.author then label = label .. " " .. entry.fields.author end
 
@@ -95,6 +86,8 @@ handlers["textDocument/completion"] = function(params, callback)
 	end)
 end
 
+---@param params BibLspCompletionItem
+---@param callback BibLspCallback
 handlers["completionItem/resolve"] = function(params, callback)
 	local key = params.textEdit.newText
 	local entry = state.backend.get(key)
@@ -113,27 +106,32 @@ handlers["completionItem/resolve"] = function(params, callback)
 	callback(nil, params)
 end
 
+---@param params BibLspParams
+---@param callback BibLspCallback
 handlers["textDocument/definition"] = function(params, callback)
-	local key = u.lsp.key(params)
+	local found = citekey(params)
 
-	if not key then
-		callback(nil, { result = nil })
+	if not found then
+		callback(nil, nil)
 		return
 	end
 
-	local loc = state.backend.definition(key)
-	callback(nil, { result = loc })
+	local loc = state.backend.definition(found)
+
+	callback(nil, loc)
 end
 
+---@param params BibLspParams
+---@param callback BibLspCallback
 handlers["textDocument/hover"] = function(params, callback)
-	local key = u.lsp.key(params)
+	local found = citekey(params)
 
-	if not key then
-		callback(nil, { result = nil })
+	if not found then
+		callback(nil, nil)
 		return
 	end
 
-	local content = state.backend.hover(key)
+	local content = state.backend.hover(found)
 
 	if not content then
 		callback(nil, nil)
@@ -147,8 +145,7 @@ handlers.notify = {}
 
 handlers.notify["initialized"] = function() state.stopped = false end
 
---- LSP server entry point
----@return {request: fun(method: string, params: table, callback: function, _: table?), notify: fun(method: string, _: table?), is_closing: fun(): boolean, terminate: function}
+---@return BibLspServer
 function lsp.server()
 	return {
 		request = function(method, params, callback, _)
@@ -170,22 +167,48 @@ function lsp.server()
 	}
 end
 
---- Start the LSP server for the current buffer
+---@return Backend|nil
+function lsp.backend() return state.backend end
+
+--- Select backend for a buffer: bib first, zotero fallback
 ---@param bufnr integer
-function lsp.start(bufnr)
-	lsp.pick(bufnr)
+---@return Backend|nil
+function lsp.pick(bufnr)
+	local bib = require("bib.backends.bib")
 
-	if not state.backend then return end
+	if pcall(bib.load, bufnr) then
+		state.backend = bib
+		return state.backend
+	end
 
-	vim.lsp.enable(state.name)
+	local zotero = require("bib.backends.zotero")
 
-	require("bib.conceal").setup(bufnr)
+	if pcall(zotero.load) then state.backend = zotero end
 
-	vim.api.nvim_create_autocmd("BufWritePost", {
-		buffer = bufnr,
-		callback = function() state.backend.load(bufnr) end,
-		group = vim.api.nvim_create_augroup("BibLSP", { clear = true }),
-		desc = "Refresh bib entries when buffer is saved",
+	return state.backend
+end
+
+function lsp.attach()
+	vim.api.nvim_create_autocmd("LspAttach", {
+		pattern = state.name,
+		group = vim.api.nvim_create_augroup("BibLspAttach", { clear = true }),
+		callback = function(args)
+			local bufnr = args.buf
+
+			if not lsp.pick(bufnr) then
+				local client = vim.lsp.get_client_by_id(args.data.client_id)
+				if client then client:stop() end
+				return
+			end
+
+			require("bib.conceal").setup(bufnr)
+
+			vim.api.nvim_create_autocmd("BufWritePost", {
+				buffer = bufnr,
+				group = vim.api.nvim_create_augroup("BibReloadBackend" .. bufnr, { clear = true }),
+				callback = function() state.backend.load(bufnr) end,
+			})
+		end,
 	})
 end
 

@@ -43,7 +43,7 @@ vim
 			tu.write_file(child, md, c.content)
 			if c.bib_json then tu.write_file(child, vim.fs.joinpath(dir, ".bib.json"), c.bib_json) end
 			child.lua(string.format("vim.cmd.edit(%q)", md))
-			eq(child.lua_get("require('bib.utils').find_bib_file(vim.api.nvim_get_current_buf())"), c.expected_getter(dir))
+			eq(child.lua_get("require('bib.utils.backends').find_bib_file(vim.api.nvim_get_current_buf())"), c.expected_getter(dir))
 		end
 	end)
 
@@ -65,7 +65,7 @@ vim
 			tu.write_file(child, tex, c.content)
 			child.lua(string.format("vim.cmd.edit(%q)", tex))
 			child.lua(string.format("_G._bib_dir = %q", dir))
-			eq(child.lua_get("require('bib.utils').find_tex_bib(_G._bib_dir, vim.api.nvim_get_current_buf())"), c.expected_getter(dir))
+			eq(child.lua_get("require('bib.utils.backends').find_tex_bib(_G._bib_dir, vim.api.nvim_get_current_buf())"), c.expected_getter(dir))
 		end
 	end)
 

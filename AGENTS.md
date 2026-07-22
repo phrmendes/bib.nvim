@@ -28,6 +28,7 @@ hover(key)          → string|nil     # formatted hover content
 - **No section comments.** No `-- =====` or decorative separators.
 - **Patterns in `bib.patterns`.** All regex lives in `lua/bib/patterns.lua` with `---@field` annotations. No raw regex strings in code.
 - **No SQL in Lua code.** Queries go in `sql/` directory as named `.sql` files.
+- **Helpers go to `bib.utils`.** No local functions unless the logic is specific to a single module and not reusable.
 
 ## Annotations
 

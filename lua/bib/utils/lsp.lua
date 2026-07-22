@@ -28,10 +28,10 @@ local citation_extractors = {
 		local pos = full_col - start_col + 1
 
 		local prefix = text:sub(1, pos - 1):match(patterns.key_left)
-		if not prefix then return nil end
+		if not prefix then return end
 
 		local rest = text:sub(pos):match(patterns.key_right)
-		if not rest then return nil end
+		if not rest then return end
 
 		return prefix .. rest
 	end,
@@ -62,14 +62,14 @@ end
 ---@return integer lnum
 ---@return integer char
 ---@return integer bufnr
-function lsp.pos(params) return params.position.line, params.position.character, vim.uri_to_bufnr(params.textDocument.uri) end
+function lsp.position(params) return params.position.line, params.position.character, vim.uri_to_bufnr(params.textDocument.uri) end
 
 --- Extract citation key at the LSP request position
 ---@param params table
 ---@return string|nil
-function lsp.key(params)
-	local lnum, char, bufnr = lsp.pos(params)
-	return lsp.key_at(bufnr, lnum, char)
+function lsp.citekey(params)
+	local lnum, char, bufnr = lsp.position(params)
+	return lsp.citekey_at(bufnr, lnum, char)
 end
 
 --- Extract a citation key at cursor position
@@ -78,6 +78,6 @@ end
 ---@param col integer 0-indexed column
 ---@param partial? boolean Return only the partial key before cursor
 ---@return string|nil
-function lsp.key_at(bufnr, lnum, col, partial) return extract_key(bufnr, lnum, col, partial) end
+function lsp.citekey_at(bufnr, lnum, col, partial) return extract_key(bufnr, lnum, col, partial) end
 
 return lsp

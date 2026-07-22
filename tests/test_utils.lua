@@ -36,7 +36,7 @@ vim
 			local md = vim.fs.joinpath(dir, "paper.md")
 			tu.write_file(child, md, c.content)
 			child.lua(string.format("vim.cmd.edit(%q)", md))
-			eq(child.lua_get(string.format("require('bib.utils').key_at(vim.api.nvim_get_current_buf(), 0, %d)", c.col)), c.expected)
+			eq(child.lua_get(string.format("require('bib.utils.lsp').citekey_at(vim.api.nvim_get_current_buf(), 0, %d)", c.col)), c.expected)
 		end
 	end)
 
@@ -55,7 +55,7 @@ vim
 			local fpath = vim.fs.joinpath(dir, "paper." .. ext)
 			tu.write_file(child, fpath, c.content)
 			child.lua(string.format("vim.cmd.edit(%q)", fpath))
-			eq(child.lua_get(string.format("require('bib.utils').key_at(vim.api.nvim_get_current_buf(), 0, %d, true)", c.col)), c.expected)
+			eq(child.lua_get(string.format("require('bib.utils.lsp').citekey_at(vim.api.nvim_get_current_buf(), 0, %d, true)", c.col)), c.expected)
 		end
 	end)
 
@@ -68,7 +68,7 @@ vim
 	})
 	:each(function(c)
 		T["resolve_path"][c.name] = function()
-			child.lua(string.format("_G._r = require('bib.utils').resolve_path(%q, %q)", c.base, c.path))
+			child.lua(string.format("_G._r = require('bib.utils.backends').resolve_path(%q, %q)", c.base, c.path))
 			eq(child.lua_get("_G._r"), c.expected)
 		end
 	end)

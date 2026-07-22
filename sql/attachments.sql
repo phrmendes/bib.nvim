@@ -2,5 +2,4 @@
 -- Parameter: :itemID
 SELECT path, contentType
 FROM itemAttachments
-WHERE parentItemID = :itemID
-  AND contentType = 'application/pdf'
+WHERE parentItemID = :itemID AND contentType = 'application/pdf'

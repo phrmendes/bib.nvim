@@ -1,84 +1,29 @@
-local p = require("bib.patterns")
-local u = require("bib.utils")
+local format_item = require("bib.utils").format_item
+local handle_selection = require("bib.utils").handle_selection
+local load = require("bib.utils.backends").load
 
 ---@type table
 local commands = {}
 
---- Search bib (or zotero) and open or insert citation key
+--- Search bib (or zotero) and open reference
 ---@param args string
 function commands.search(args)
-	args = vim.trim(args or "")
-
-	local zotero_only = false
-	local query = args
-
-	if args:find(p.search_zotero) == 1 then
-		zotero_only = true
-		query = args:gsub(p.search_zotero, "", 1)
-	elseif args == "zotero" then
-		zotero_only = true
-		query = ""
-	end
-
-	if query == "" then
-		local prompt = zotero_only and "Zotero search: " or "Search: "
-		vim.ui.input({ prompt = prompt }, function(input)
-			if not input or input == "" then return end
-			commands.search((zotero_only and "zotero " or "") .. input)
-		end)
-		return
-	end
+	local zotero_only = vim.trim(args or "") == "zotero"
 
 	vim.schedule(function()
-		local items = {}
+		local raw = zotero_only and load.zotero() or load.bib() or load.zotero()
 
-		if zotero_only then
-			local zotero = require("bib.backends.zotero")
-			local ok = pcall(zotero.load)
-
-			if not ok then
-				vim.notify("Zotero: failed to load database", vim.log.levels.ERROR)
-				return
-			end
-
-			items = zotero.search(query)
-		else
-			local bib = require("bib.backends.bib")
-			local ok = pcall(bib.load, vim.api.nvim_get_current_buf())
-			if ok then items = bib.search(query) end
-
-			if #items == 0 then
-				local zotero = require("bib.backends.zotero")
-				local ok = pcall(zotero.load)
-
-				if ok then items = zotero.search(query) end
-			end
-		end
-
-		if #items == 0 then
-			vim.notify("No entries found for: " .. query, vim.log.levels.INFO)
+		if not raw or #raw == 0 then
+			vim.notify("No entries found", vim.log.levels.INFO)
 			return
 		end
 
-		vim.ui.select(items, {
-			prompt = "Results:",
-			format_item = function(e)
-				local label = string.format("%s  %s", u.display_key(e), e.fields.title or "")
-				if e.fields.author then label = label .. "  (" .. e.fields.author .. ")" end
-				if #label > 100 then label = label:sub(1, 97) .. "..." end
-				return label
-			end,
-		}, function(entry)
-			if not entry then return end
+		local items = vim.iter(raw):map(function(e) return { display = format_item(e), key = e.key, zotkey = e.zotkey } end):totable()
 
-			if entry.zotkey then
-				vim.ui.open("zotero://select/library/items/" .. entry.zotkey)
-			else
-				local bib = require("bib.backends.bib")
-				local loc = bib.definition(entry.key)
-				if loc then vim.lsp.util.jump_to_location(loc) end
-			end
-		end)
+		vim.ui.select(items, {
+			prompt = "References:",
+			format_item = function(v) return v.display end,
+		}, handle_selection)
 	end)
 end
 

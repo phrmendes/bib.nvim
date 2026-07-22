@@ -10,16 +10,8 @@ T["lsp_start"] = test.new_set()
 
 vim
 	.iter({
-		{
-			name = "attaches lsp client for bib buffer",
-			content = entry,
-			expected = true,
-		},
-		{
-			name = "does not attach when no bib",
-			content = nil,
-			expected = false,
-		},
+		{ name = "attaches lsp client when bib found", content = entry },
+		{ name = "attaches lsp client when no bib file", content = nil },
 	})
 	:each(function(c)
 		T["lsp_start"][c.name] = function()
@@ -28,11 +20,9 @@ vim
 			if c.content then tu.write_file(child, vim.fs.joinpath(dir, "refs.bib"), c.content) end
 			tu.write_file(child, md, c.content and "---\nbibliography: refs.bib\n---\nSee @smith2020." or "# No bib")
 			child.lua(string.format("vim.cmd.edit(%q)", md))
-			child.lua("require('bib.config').setup({ zotero = { database = '/tmp/nonexistent.sqlite' } })")
-			child.lua("require('bib.lsp').start(vim.api.nvim_get_current_buf())")
-			child.lua("vim.wait(500, function() return false end)")
-			child.lua([[_G._bib_check = function() for _, c in ipairs(vim.lsp.get_clients({bufnr=0})) do if c.name == 'bib_ls' then return true end end; return false end]])
-			eq(child.lua_get("_G._bib_check()"), c.expected)
+			child.lua("require('bib').setup({ zotero = { database = '/tmp/nonexistent.sqlite' } })")
+			local has = child.lua_get("(function() for _, c in ipairs(vim.lsp.get_clients({bufnr=0})) do if c.name == 'bib_ls' then return true end end; return false end)()")
+			eq(has, true)
 		end
 	end)
 
@@ -44,16 +34,16 @@ T["lsp_handlers"]["completion returns items matching prefix"] = function()
 	local md = vim.fs.joinpath(dir, "paper.md")
 	tu.write_file(child, md, "---\nbibliography: refs.bib\n---\n\nSee @smi")
 	child.lua(string.format("vim.cmd.edit(%q)", md))
-	child.lua("require('bib.config').setup({ zotero = { database = '/tmp/nonexistent.sqlite' } })")
+	child.lua("require('bib').setup({ zotero = { database = '/tmp/nonexistent.sqlite' } })")
 	child.lua("require('bib.lsp').pick(vim.api.nvim_get_current_buf())")
 	child.lua([[
 		_G._result = nil
 		local server = require("bib.lsp").server()
 		server.request("textDocument/completion", {
 			textDocument = { uri = vim.uri_from_bufnr(0) },
-			position = { line = 3, character = 7 },
+			position = { line = 4, character = 7 },
 		}, function(err, result)
-			_G._result = { err = err, result = result }
+			_G._result = { err = err or vim.NIL, result = result or vim.NIL }
 		end)
 	]])
 	child.lua("vim.wait(1000, function() return _G._result ~= nil end)")
@@ -61,7 +51,7 @@ T["lsp_handlers"]["completion returns items matching prefix"] = function()
 	eq(r.err, vim.NIL)
 	eq(#r.result.items, 1)
 	eq(r.result.items[1].textEdit.newText, "smith2020")
-	eq(r.result.items[1].kind, 21) -- Reference
+	eq(r.result.items[1].kind, 18) -- Reference
 end
 
 T["lsp_handlers"]["completion returns empty when no key"] = function()
@@ -70,7 +60,7 @@ T["lsp_handlers"]["completion returns empty when no key"] = function()
 	local md = vim.fs.joinpath(dir, "paper.md")
 	tu.write_file(child, md, "---\nbibliography: refs.bib\n---\n\nSee no key here")
 	child.lua(string.format("vim.cmd.edit(%q)", md))
-	child.lua("require('bib.config').setup({ zotero = { database = '/tmp/nonexistent.sqlite' } })")
+	child.lua("require('bib').setup({ zotero = { database = '/tmp/nonexistent.sqlite' } })")
 	child.lua("require('bib.lsp').pick(vim.api.nvim_get_current_buf())")
 	child.lua([[
 		_G._result = nil
@@ -79,7 +69,7 @@ T["lsp_handlers"]["completion returns empty when no key"] = function()
 			textDocument = { uri = vim.uri_from_bufnr(0) },
 			position = { line = 3, character = 10 },
 		}, function(err, result)
-			_G._result = { err = err, result = result }
+			_G._result = { err = err or vim.NIL, result = result or vim.NIL }
 		end)
 	]])
 	child.lua("vim.wait(1000, function() return _G._result ~= nil end)")
@@ -94,16 +84,16 @@ T["lsp_handlers"]["definition returns bib file location"] = function()
 	local md = vim.fs.joinpath(dir, "paper.md")
 	tu.write_file(child, md, "---\nbibliography: refs.bib\n---\n\nSee @smith2020")
 	child.lua(string.format("vim.cmd.edit(%q)", md))
-	child.lua("require('bib.config').setup({ zotero = { database = '/tmp/nonexistent.sqlite' } })")
+	child.lua("require('bib').setup({ zotero = { database = '/tmp/nonexistent.sqlite' } })")
 	child.lua("require('bib.lsp').pick(vim.api.nvim_get_current_buf())")
 	child.lua([[
 		_G._result = nil
 		local server = require("bib.lsp").server()
 		server.request("textDocument/definition", {
 			textDocument = { uri = vim.uri_from_bufnr(0) },
-			position = { line = 3, character = 12 },
+			position = { line = 4, character = 12 },
 		}, function(err, result)
-			_G._result = { err = err, result = result }
+			_G._result = { err = err or vim.NIL, result = result or vim.NIL }
 		end)
 	]])
 	local r = child.lua_get("_G._result")
@@ -118,16 +108,16 @@ T["lsp_handlers"]["hover returns formatted content"] = function()
 	local md = vim.fs.joinpath(dir, "paper.md")
 	tu.write_file(child, md, "---\nbibliography: refs.bib\n---\n\nSee @smith2020")
 	child.lua(string.format("vim.cmd.edit(%q)", md))
-	child.lua("require('bib.config').setup({ zotero = { database = '/tmp/nonexistent.sqlite' } })")
+	child.lua("require('bib').setup({ zotero = { database = '/tmp/nonexistent.sqlite' } })")
 	child.lua("require('bib.lsp').pick(vim.api.nvim_get_current_buf())")
 	child.lua([[
 		_G._result = nil
 		local server = require("bib.lsp").server()
 		server.request("textDocument/hover", {
 			textDocument = { uri = vim.uri_from_bufnr(0) },
-			position = { line = 3, character = 12 },
+			position = { line = 4, character = 12 },
 		}, function(err, result)
-			_G._result = { err = err, result = result }
+			_G._result = { err = err or vim.NIL, result = result or vim.NIL }
 		end)
 	]])
 	local r = child.lua_get("_G._result")
@@ -144,7 +134,7 @@ T["lsp_handlers"]["completion returns empty inside code fence"] = function()
 	local md = vim.fs.joinpath(dir, "paper.md")
 	tu.write_file(child, md, "---\nbibliography: refs.bib\n---\n\n```markdown\n@smi\n```\n\nSee @smi")
 	child.lua(string.format("vim.cmd.edit(%q)", md))
-	child.lua("require('bib.config').setup({ zotero = { database = '/tmp/nonexistent.sqlite' } })")
+	child.lua("require('bib').setup({ zotero = { database = '/tmp/nonexistent.sqlite' } })")
 	child.lua("require('bib.lsp').pick(vim.api.nvim_get_current_buf())")
 	child.lua([[
 		_G._result = nil
@@ -153,7 +143,7 @@ T["lsp_handlers"]["completion returns empty inside code fence"] = function()
 			textDocument = { uri = vim.uri_from_bufnr(0) },
 			position = { line = 4, character = 4 },
 		}, function(err, result)
-			_G._result = { err = err, result = result }
+			_G._result = { err = err or vim.NIL, result = result or vim.NIL }
 		end)
 	]])
 	child.lua("vim.wait(1000, function() return _G._result ~= nil end)")

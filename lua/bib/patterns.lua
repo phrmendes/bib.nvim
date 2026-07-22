@@ -9,7 +9,7 @@
 ---@field citekey_rest string Extract citekey chars after ITEMID#
 ---@field zotkey_strip string Strip #citekey suffix from zotero composite key
 ---@field year string Extract YYYY year from date field
----@field search_zotero string Match "zotero" keyword in search args
+---@field lastname string Extract last word from an author name
 return {
 	concat_sep = "%s*#%s*",
 	whitespace = "%s+",
@@ -21,5 +21,5 @@ return {
 	citekey_rest = "[%w%-]+",
 	zotkey_strip = "#.*",
 	year = "^(%d%d%d%d)",
-	search_zotero = "^zotero%s",
+	lastname = "(%S+)$",
 }

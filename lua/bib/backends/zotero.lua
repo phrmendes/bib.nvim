@@ -1,6 +1,8 @@
 local patterns = require("bib.patterns")
-local u = require("bib.utils")
+local find_zotero_db = require("bib.utils.backends").find_zotero_db
+local read_sql = require("bib.utils.backends").read_sql
 
+---@type table
 local zotero = {}
 
 ---@type {entries: table<string, ZoteroEntry>}
@@ -12,14 +14,14 @@ local state = {
 ---@return nil
 function zotero.load()
 	local sqlite = require("sqlite")
-	local db_path = u.backends.find_zotero_db()
+	local db_path = find_zotero_db()
 	if not db_path or not vim.uv.fs_stat(db_path) then error("zotero database not found") end
 
 	local db = sqlite.new(db_path)
 	db:open()
 
-	local items = db:eval(u.backends.read_sql("items"))
-	local creators = db:eval(u.backends.read_sql("creators"))
+	local items = db:eval(read_sql("items"))
+	local creators = db:eval(read_sql("creators"))
 	db:close()
 
 	if not items or #items == 0 then error("zotero database is empty") end
@@ -103,7 +105,7 @@ end
 ---@return {uri: string, range: table}|nil
 function zotero.definition(key)
 	local zotkey = key:gsub(patterns.zotkey_strip, "")
-	if not state.entries[zotkey] then return nil end
+	if not state.entries[zotkey] then return end
 	return { uri = "zotero://select/library/items/" .. zotkey }
 end
 
@@ -113,7 +115,7 @@ end
 function zotero.hover(key)
 	local zotkey = key:gsub(patterns.zotkey_strip, "")
 	local entry = state.entries[zotkey]
-	if not entry then return nil end
+	if not entry then return end
 	local header = {}
 	if entry.creators and entry.creators.author then table.insert(header, entry.creators.author) end
 	if entry.fields.title then table.insert(header, entry.fields.title) end
