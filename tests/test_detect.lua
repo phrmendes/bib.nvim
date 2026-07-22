@@ -1,8 +1,8 @@
 local test = require("mini.test")
-local tu = dofile("tests/utils.lua")
+local u = dofile("tests/utils.lua")
 local eq = test.expect.equality
 
-local child, T = tu.new_child_set()
+local child, T = u.new_child_set()
 
 T["find_bib_file"] = test.new_set()
 
@@ -36,12 +36,12 @@ vim
 	})
 	:each(function(c)
 		T["find_bib_file"][c.name] = function()
-			local dir = tu.temp_dir()
+			local dir = u.temp_dir()
 			local md = vim.fs.joinpath(dir, "paper.md")
-			if c.extra_files then vim.iter(c.extra_files):each(function(f) tu.write_file(child, vim.fs.joinpath(dir, f[1]), f[2]) end) end
-			tu.write_file(child, vim.fs.joinpath(dir, "refs.bib"), "@article{test, title = {Test}}")
-			tu.write_file(child, md, c.content)
-			if c.bib_json then tu.write_file(child, vim.fs.joinpath(dir, ".bib.json"), c.bib_json) end
+			if c.extra_files then vim.iter(c.extra_files):each(function(f) u.write_file(child, vim.fs.joinpath(dir, f[1]), f[2]) end) end
+			u.write_file(child, vim.fs.joinpath(dir, "refs.bib"), "@article{test, title = {Test}}")
+			u.write_file(child, md, c.content)
+			if c.bib_json then u.write_file(child, vim.fs.joinpath(dir, ".bib.json"), c.bib_json) end
 			child.lua(string.format("vim.cmd.edit(%q)", md))
 			eq(child.lua_get("require('bib.utils.backends').find_bib_file(vim.api.nvim_get_current_buf())"), c.expected_getter(dir))
 		end
@@ -59,10 +59,10 @@ vim
 	})
 	:each(function(c)
 		T["find_tex_bib"][c.name] = function()
-			local dir = tu.temp_dir()
+			local dir = u.temp_dir()
 			local tex = vim.fs.joinpath(dir, "paper.tex")
-			tu.write_file(child, vim.fs.joinpath(dir, "refs.bib"), "@article{test, title = {Test}}")
-			tu.write_file(child, tex, c.content)
+			u.write_file(child, vim.fs.joinpath(dir, "refs.bib"), "@article{test, title = {Test}}")
+			u.write_file(child, tex, c.content)
 			child.lua(string.format("vim.cmd.edit(%q)", tex))
 			child.lua(string.format("_G._bib_dir = %q", dir))
 			eq(child.lua_get("require('bib.utils.backends').find_tex_bib(_G._bib_dir, vim.api.nvim_get_current_buf())"), c.expected_getter(dir))

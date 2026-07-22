@@ -1,8 +1,8 @@
 local test = require("mini.test")
-local tu = dofile("tests/utils.lua")
+local u = dofile("tests/utils.lua")
 local eq = test.expect.equality
 
-local child, T = tu.new_child_set()
+local child, T = u.new_child_set()
 
 local entry = "@article{smith2020,\n  author = {John Smith},\n  title = {Test},\n  year = {2020}\n}"
 local both = entry .. "\n" .. "@book{jones2021,\n  author = {Jane Jones},\n  title = {Book},\n  year = {2021}\n}"
@@ -10,10 +10,10 @@ local both = entry .. "\n" .. "@book{jones2021,\n  author = {Jane Jones},\n  tit
 T["search"] = test.new_set()
 
 T["search"]["shows bib entries in picker"] = function()
-	local dir = tu.temp_dir()
-	tu.write_file(child, vim.fs.joinpath(dir, "refs.bib"), both)
+	local dir = u.temp_dir()
+	u.write_file(child, vim.fs.joinpath(dir, "refs.bib"), both)
 	local md = vim.fs.joinpath(dir, "paper.md")
-	tu.write_file(child, md, "---\nbibliography: refs.bib\n---\n")
+	u.write_file(child, md, "---\nbibliography: refs.bib\n---\n")
 	child.lua(string.format("vim.cmd.edit(%q)", md))
 
 	child.lua([[
@@ -37,10 +37,10 @@ T["search"]["shows bib entries in picker"] = function()
 end
 
 T["search"]["shows zotero entries in picker"] = function()
-	local dir = tu.temp_dir()
-	tu.setup_zotero_db(child, dir)
+	local dir = u.temp_dir()
+	u.setup_zotero_db(child, dir)
 	local md = vim.fs.joinpath(dir, "paper.md")
-	tu.write_file(child, md, "# Hello")
+	u.write_file(child, md, "# Hello")
 	child.lua(string.format("vim.cmd.edit(%q)", md))
 	child.lua(string.format("require('bib').setup({ zotero = { database = %q } })", vim.fs.joinpath(dir, "zotero.sqlite")))
 
@@ -62,10 +62,10 @@ T["search"]["shows zotero entries in picker"] = function()
 end
 
 T["search"]["format is author - title (year)"] = function()
-	local dir = tu.temp_dir()
-	tu.write_file(child, vim.fs.joinpath(dir, "refs.bib"), entry)
+	local dir = u.temp_dir()
+	u.write_file(child, vim.fs.joinpath(dir, "refs.bib"), entry)
 	local md = vim.fs.joinpath(dir, "paper.md")
-	tu.write_file(child, md, "---\nbibliography: refs.bib\n---\n")
+	u.write_file(child, md, "---\nbibliography: refs.bib\n---\n")
 	child.lua(string.format("vim.cmd.edit(%q)", md))
 
 	child.lua([[
@@ -82,14 +82,13 @@ T["search"]["format is author - title (year)"] = function()
 	local author_year, title = items[1].display:match("^(.+) %- (.+)$")
 	eq(author_year, "Smith (2020)")
 	eq(title, "Test")
-	eq(title, "Test")
 end
 
 T["search"]["selection opens zotero URI"] = function()
-	local dir = tu.temp_dir()
-	tu.setup_zotero_db(child, dir)
+	local dir = u.temp_dir()
+	u.setup_zotero_db(child, dir)
 	local md = vim.fs.joinpath(dir, "paper.md")
-	tu.write_file(child, md, "# Hello")
+	u.write_file(child, md, "# Hello")
 	child.lua(string.format("vim.cmd.edit(%q)", md))
 	child.lua(string.format("require('bib').setup({ zotero = { database = %q } })", vim.fs.joinpath(dir, "zotero.sqlite")))
 
@@ -109,10 +108,10 @@ T["search"]["selection opens zotero URI"] = function()
 end
 
 T["search"]["selection jumps to bib file"] = function()
-	local dir = tu.temp_dir()
-	tu.write_file(child, vim.fs.joinpath(dir, "refs.bib"), entry)
+	local dir = u.temp_dir()
+	u.write_file(child, vim.fs.joinpath(dir, "refs.bib"), entry)
 	local md = vim.fs.joinpath(dir, "paper.md")
-	tu.write_file(child, md, "---\nbibliography: refs.bib\n---\n")
+	u.write_file(child, md, "---\nbibliography: refs.bib\n---\n")
 	child.lua(string.format("vim.cmd.edit(%q)", md))
 
 	child.lua([[

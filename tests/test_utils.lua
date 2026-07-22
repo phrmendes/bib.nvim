@@ -1,8 +1,8 @@
 local test = require("mini.test")
-local tu = dofile("tests/utils.lua")
+local u = dofile("tests/utils.lua")
 local eq = test.expect.equality
 
-local child, T = tu.new_child_set()
+local child, T = u.new_child_set()
 
 T["yaml_field"] = test.new_set()
 
@@ -14,9 +14,9 @@ vim
 	})
 	:each(function(c)
 		T["yaml_field"][c.name] = function()
-			local dir = tu.temp_dir()
+			local dir = u.temp_dir()
 			local md = vim.fs.joinpath(dir, "paper.md")
-			tu.write_file(child, md, c.content)
+			u.write_file(child, md, c.content)
 			child.lua(string.format("vim.cmd.edit(%q)", md))
 			eq(child.lua_get("require('bib.yaml').field('bibliography', vim.api.nvim_get_current_buf())"), c.expected)
 		end
@@ -32,9 +32,9 @@ vim
 	})
 	:each(function(c)
 		T["key_at"][c.name] = function()
-			local dir = tu.temp_dir()
+			local dir = u.temp_dir()
 			local md = vim.fs.joinpath(dir, "paper.md")
-			tu.write_file(child, md, c.content)
+			u.write_file(child, md, c.content)
 			child.lua(string.format("vim.cmd.edit(%q)", md))
 			eq(child.lua_get(string.format("require('bib.utils.lsp').citekey_at(vim.api.nvim_get_current_buf(), 0, %d)", c.col)), c.expected)
 		end
@@ -50,10 +50,10 @@ vim
 	})
 	:each(function(c)
 		T["partial_key"][c.name] = function()
-			local dir = tu.temp_dir()
+			local dir = u.temp_dir()
 			local ext = c.ft or "md"
 			local fpath = vim.fs.joinpath(dir, "paper." .. ext)
-			tu.write_file(child, fpath, c.content)
+			u.write_file(child, fpath, c.content)
 			child.lua(string.format("vim.cmd.edit(%q)", fpath))
 			eq(child.lua_get(string.format("require('bib.utils.lsp').citekey_at(vim.api.nvim_get_current_buf(), 0, %d, true)", c.col)), c.expected)
 		end

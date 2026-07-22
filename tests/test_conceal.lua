@@ -1,15 +1,15 @@
 local test = require("mini.test")
-local tu = dofile("tests/utils.lua")
+local u = dofile("tests/utils.lua")
 local eq = test.expect.equality
 
-local child, T = tu.new_child_set()
+local child, T = u.new_child_set()
 
 T["conceal"] = test.new_set()
 
 local function setup_conceal(content)
-	local dir = tu.temp_dir()
+	local dir = u.temp_dir()
 	local md = vim.fs.joinpath(dir, "paper.md")
-	tu.write_file(child, md, content)
+	u.write_file(child, md, content)
 	child.lua(string.format("vim.cmd.edit(%q)", md))
 	local bufnr = child.lua_get("vim.api.nvim_get_current_buf()")
 	child.lua(string.format("require('bib.conceal').setup(%d)", bufnr))
@@ -80,9 +80,9 @@ T["conceal"]["handles multiple prefixes on one line"] = function()
 end
 
 T["conceal"]["extmarks update after text changed"] = function()
-	local dir = tu.temp_dir()
+	local dir = u.temp_dir()
 	local md = vim.fs.joinpath(dir, "paper.md")
-	tu.write_file(child, md, "see @ABC123#smith2020 for details")
+	u.write_file(child, md, "see @ABC123#smith2020 for details")
 	child.lua(string.format("vim.cmd.edit(%q)", md))
 	child.lua("require('bib.conceal').setup(vim.api.nvim_get_current_buf())")
 	child.lua("vim.api.nvim_exec_autocmds('BufWinEnter', { buffer = 0 })")

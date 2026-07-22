@@ -143,4 +143,48 @@ utils.setup_zotero_db_malformed = function(child, dir)
 	return db_path
 end
 
+---@type table
+---@field setup_zotero_full fun(child: MiniTest.child): {dir: string, db_path: string}
+utils.zotero = {}
+
+--- Set up a Zotero-backed buffer with the database loaded
+---@param child MiniTest.child
+---@return string dir, string db_path
+function utils.zotero.setup(child)
+	local dir = utils.temp_dir()
+	local db_path = utils.setup_zotero_db(child, dir)
+	local md = vim.fs.joinpath(dir, "paper.md")
+	utils.write_file(child, md, "# Hello")
+	child.lua(string.format("vim.cmd.edit(%q)", md))
+	child.lua(string.format("require('bib').setup({ zotero = { database = %q } })", db_path))
+	child.lua("pcall(require('bib.backends.zotero').load)")
+	return dir, db_path
+end
+
+--- Send an LSP request in the child process and return the result
+---@param child MiniTest.child
+---@param method string
+---@param position {line: integer, character: integer}
+---@param wait? boolean Use vim.wait for async completion handlers
+---@return table
+function utils.lsp_request(child, method, position, wait)
+	child.lua(string.format(
+		[[
+		_G._result = nil
+		local server = require("bib.lsp").server()
+		server.request("%s", {
+			textDocument = { uri = vim.uri_from_bufnr(0) },
+			position = { line = %d, character = %d },
+		}, function(err, result)
+			_G._result = { err = err or vim.NIL, result = result or vim.NIL }
+		end)
+	]],
+		method,
+		position.line,
+		position.character
+	))
+	if wait ~= false then child.lua("vim.wait(1000, function() return _G._result ~= nil end)") end
+	return child.lua_get("_G._result")
+end
+
 return utils

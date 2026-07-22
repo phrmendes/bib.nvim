@@ -1,8 +1,8 @@
 local test = require("mini.test")
-local tu = dofile("tests/utils.lua")
+local u = dofile("tests/utils.lua")
 local eq = test.expect.equality
 
-local child, T = tu.new_child_set()
+local child, T = u.new_child_set()
 
 local entry = "@article{smith2020,\n  author = {John Smith},\n  title = {Test},\n  year = {2020}\n}"
 local entry2 = "@book{jones2021,\n  author = {Jane Jones},\n  title = {Book},\n  year = {2021}\n}"
@@ -17,10 +17,10 @@ vim
 	})
 	:each(function(c)
 		T["load"][c.name] = function()
-			local dir = tu.temp_dir()
+			local dir = u.temp_dir()
 			local md = vim.fs.joinpath(dir, "paper.md")
-			if c.has_bib then tu.write_file(child, vim.fs.joinpath(dir, "refs.bib"), entry) end
-			tu.write_file(child, md, c.has_bib and "---\nbibliography: refs.bib\n---\n" or "# No bib")
+			if c.has_bib then u.write_file(child, vim.fs.joinpath(dir, "refs.bib"), entry) end
+			u.write_file(child, md, c.has_bib and "---\nbibliography: refs.bib\n---\n" or "# No bib")
 			child.lua(string.format("vim.cmd.edit(%q)", md))
 			child.lua(string.format("require('bib.backends.bib').load(%d)", vim.api.nvim_get_current_buf()))
 			eq(child.lua_get("#require('bib.backends.bib').all() > 0"), c.expected)
@@ -30,7 +30,7 @@ vim
 T["match"] = test.new_set()
 
 T["match"]["matches by prefix"] = function()
-	tu.setup_bib(child, both)
+	u.setup_bib(child, both)
 	eq(child.lua_get("#require('bib.backends.bib').match('smi')"), 1)
 	eq(child.lua_get("require('bib.backends.bib').match('smi')[1].key"), "smith2020")
 end
@@ -45,7 +45,7 @@ vim
 	})
 	:each(function(c)
 		T["get"]["returns " .. c.field] = function()
-			tu.setup_bib(child, entry)
+			u.setup_bib(child, entry)
 			eq(child.lua_get("require('bib.backends.bib').get('smith2020')." .. c.field), c.expected)
 		end
 	end)
@@ -53,32 +53,32 @@ vim
 T["definition"] = test.new_set()
 
 T["definition"]["returns location with uri"] = function()
-	local dir = tu.setup_bib(child, entry)
+	local dir = u.setup_bib(child, entry)
 	eq(child.lua_get("require('bib.backends.bib').definition('smith2020').uri"), vim.uri_from_fname(vim.fs.joinpath(dir, "refs.bib")))
 end
 
 T["hover"] = test.new_set()
 
 T["hover"]["format is author - title - year"] = function()
-	tu.setup_bib(child, entry)
+	u.setup_bib(child, entry)
 	eq(child.lua_get("require('bib.backends.bib').hover('smith2020')"), "# John Smith - Test - 2020")
 end
 
 T["hover"]["contains author"] = function()
-	tu.setup_bib(child, entry)
+	u.setup_bib(child, entry)
 	eq(child.lua_get("require('bib.backends.bib').hover('smith2020'):find('John Smith') ~= nil"), true)
 end
 
 T["hover"]["includes abstract when present"] = function()
 	local with_abstract = "@article{test2020,\n  author = {Jane Doe},\n  title = {With Abstract},\n  year = {2020},\n  abstract = {A test  abstract.}\n}"
-	tu.setup_bib(child, with_abstract)
+	u.setup_bib(child, with_abstract)
 	local hover = child.lua_get("require('bib.backends.bib').hover('test2020')")
 	eq(hover:find("---") ~= nil, true)
 	eq(hover:find("A test abstract.") ~= nil, true)
 end
 
 T["definition"]["returns correct 0-indexed line range"] = function()
-	tu.setup_bib(child, entry)
+	u.setup_bib(child, entry)
 	eq(child.lua_get("require('bib.backends.bib').definition('smith2020').range.start.line"), 0)
 	eq(child.lua_get("require('bib.backends.bib').definition('smith2020').range.start.character"), 0)
 end
@@ -86,18 +86,18 @@ end
 T["search"] = test.new_set()
 
 T["search"]["matches by citekey substring"] = function()
-	tu.setup_bib(child, both)
+	u.setup_bib(child, both)
 	eq(child.lua_get("#require('bib.backends.bib').search('smit')"), 1)
 	eq(child.lua_get("require('bib.backends.bib').search('smit')[1].key"), "smith2020")
 end
 
 T["search"]["matches by title substring"] = function()
-	tu.setup_bib(child, both)
+	u.setup_bib(child, both)
 	eq(child.lua_get("#require('bib.backends.bib').search('Test')"), 1)
 end
 
 T["search"]["matches by author substring"] = function()
-	tu.setup_bib(child, both)
+	u.setup_bib(child, both)
 	eq(child.lua_get("#require('bib.backends.bib').search('jane')"), 1)
 	eq(child.lua_get("require('bib.backends.bib').search('jane')[1].key"), "jones2021")
 end
