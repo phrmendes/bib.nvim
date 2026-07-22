@@ -7,11 +7,11 @@ local p = require("bib.patterns")
 ---@return string
 function utils.display_key(entry) return entry.citekey or entry.key end
 
---- Format entry for picker display: author - id - title, 50 chars max
+--- Format entry for picker display: author - title
 ---@param e table
 ---@return string
 function utils.format_item(e)
-	local author = e.fields.author or "?"
+	local author = e.creators and e.creators.author or e.fields.author or "?"
 	local authors = vim.split(author, ", ")
 	local lastnames = vim.iter(authors):map(function(a) return a:match(p.lastname) or a end):totable()
 
@@ -21,9 +21,10 @@ function utils.format_item(e)
 		author = table.concat(lastnames, ", ")
 	end
 
-	local id = e.citekey or e.zotkey or e.key
+	if e.fields.year then author = author .. " (" .. e.fields.year .. ")" end
+
 	local title = e.fields.title or "Untitled"
-	return string.sub(string.format("%s - %s - %s", author, id, title), 1, 50)
+	return string.format("%s - %s", author, title)
 end
 
 --- Dispatch selected entry to the right action (zotero URI or LSP jump)

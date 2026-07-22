@@ -63,6 +63,11 @@ handlers["textDocument/completion"] = function(params, callback)
 			["end"] = { line = lnum, character = char },
 		}
 
+		if not state.backend then
+			callback(nil, { isIncomplete = false, items = {} })
+			return
+		end
+
 		local items = vim
 			.iter(state.backend.match(word))
 			:map(function(entry)
@@ -89,6 +94,11 @@ end
 ---@param params BibLspCompletionItem
 ---@param callback BibLspCallback
 handlers["completionItem/resolve"] = function(params, callback)
+	if not state.backend then
+		callback(nil, params)
+		return
+	end
+
 	local key = params.textEdit.newText
 	local entry = state.backend.get(key)
 
@@ -109,6 +119,11 @@ end
 ---@param params BibLspParams
 ---@param callback BibLspCallback
 handlers["textDocument/definition"] = function(params, callback)
+	if not state.backend then
+		callback(nil, nil)
+		return
+	end
+
 	local found = citekey(params)
 
 	if not found then
@@ -124,6 +139,11 @@ end
 ---@param params BibLspParams
 ---@param callback BibLspCallback
 handlers["textDocument/hover"] = function(params, callback)
+	if not state.backend then
+		callback(nil, nil)
+		return
+	end
+
 	local found = citekey(params)
 
 	if not found then
@@ -143,7 +163,20 @@ end
 
 handlers.notify = {}
 
-handlers.notify["initialized"] = function() state.stopped = false end
+handlers.notify["initialized"] = function()
+	state.stopped = false
+	local zotero = require("bib.backends.zotero")
+	if pcall(zotero.load) then state.backend = zotero end
+
+	vim.api.nvim_create_autocmd("BufWinEnter", {
+		group = vim.api.nvim_create_augroup("BibConcealInit", { clear = true }),
+		callback = function(args)
+			if state.backend then require("bib.conceal").setup(args.buf) end
+		end,
+	})
+
+	vim.api.nvim_exec_autocmds("BufWinEnter", {})
+end
 
 ---@return BibLspServer
 function lsp.server()

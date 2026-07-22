@@ -29,13 +29,11 @@ T["search"]["shows bib entries in picker"] = function()
 	local items = child.lua_get("_G._sel_items")
 	eq(#items, 2)
 
-	local keys = vim.iter(items):map(function(i) return i.display:match("^[^-]+ %- ([^ ]+) ") end):totable()
-	eq(vim.iter(keys):find(function(k) return k == "smith2020" end) ~= nil, true)
-	eq(vim.iter(keys):find(function(k) return k == "jones2021" end) ~= nil, true)
+	local has_test = vim.iter(items):find(function(i) return i.display:find("Test") ~= nil end) ~= nil
+	eq(has_test, true)
 
-	local titles = vim.iter(items):map(function(i) return i.display:match(" %- ([^ ]+)$") end):totable()
-	eq(vim.iter(titles):find(function(t) return t == "Test" end) ~= nil, true)
-	eq(vim.iter(titles):find(function(t) return t == "Book" end) ~= nil, true)
+	local has_book = vim.iter(items):find(function(i) return i.display:find("Book") ~= nil end) ~= nil
+	eq(has_book, true)
 end
 
 T["search"]["shows zotero entries in picker"] = function()
@@ -59,12 +57,11 @@ T["search"]["shows zotero entries in picker"] = function()
 	local items = child.lua_get("_G._sel_items")
 	eq(#items, 1)
 
-	local _, id, t = items[1].display:match("^(.+) %- (.+) %- (.+)$")
-	eq(id, "smith2020")
-	eq(t, "Test Title")
+	local _, title = items[1].display:match("^(.+) %- (.+)$")
+	eq(title, "Test Title")
 end
 
-T["search"]["format is author - id - title"] = function()
+T["search"]["format is author - title (year)"] = function()
 	local dir = tu.temp_dir()
 	tu.write_file(child, vim.fs.joinpath(dir, "refs.bib"), entry)
 	local md = vim.fs.joinpath(dir, "paper.md")
@@ -82,9 +79,9 @@ T["search"]["format is author - id - title"] = function()
 	child.lua("vim.wait(1000, function() return _G._sel_items ~= nil end)")
 
 	local items = child.lua_get("_G._sel_items")
-	local author, id, title = items[1].display:match("^(.+) %- (.+) %- (.+)$")
-	eq(author, "Smith")
-	eq(id, "smith2020")
+	local author_year, title = items[1].display:match("^(.+) %- (.+)$")
+	eq(author_year, "Smith (2020)")
+	eq(title, "Test")
 	eq(title, "Test")
 end
 
