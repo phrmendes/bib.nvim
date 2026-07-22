@@ -1,0 +1,35 @@
+bib.nvim — bibliography management for Neovim via LSP
+
+Provides completion, hover, go-to-definition, and code actions
+for citation keys in Markdown and LaTeX documents.
+
+Apache License 2.0 Copyright (c) 2024 Pedro Mendes
+
+==============================================================================
+"bib"
+
+------------------------------------------------------------------------------
+                                                                      *defaults*
+                                   `defaults`
+Type ~
+`(BibConfig)`
+
+------------------------------------------------------------------------------
+                                                                   *bib.setup()*
+                              `bib.setup`({opts})
+Setup bib.nvim
+
+Parameters ~
+{opts} `(optional)` `(BibConfig)`
+Return ~
+`(nil)`
+
+------------------------------------------------------------------------------
+                                                                     *bib.get()*
+                                  `bib.get`()
+Get current config
+Return ~
+`(BibConfig)`
+
+
+ vim:tw=78:ts=8:noet:ft=help:norl:

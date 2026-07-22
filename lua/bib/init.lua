@@ -1,3 +1,13 @@
+--- bib.nvim — bibliography management for Neovim via LSP
+---
+--- Provides completion, hover, go-to-definition, and code actions
+--- for citation keys in Markdown and LaTeX documents.
+---
+--- Apache License 2.0 Copyright (c) 2024 Pedro Mendes
+---
+--- ==============================================================================
+---@module "bib"
+
 local c = require("bib.constants")
 
 ---@type BibConfig
@@ -6,11 +16,12 @@ local defaults = {
 	zotero = {},
 }
 
----@type table
 local bib = {}
 
 --- Setup bib.nvim
+---
 ---@param opts? BibConfig
+---@return nil
 function bib.setup(opts)
 	bib.options = vim.tbl_deep_extend("force", defaults, opts or {})
 

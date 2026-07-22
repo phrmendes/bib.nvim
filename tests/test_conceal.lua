@@ -128,4 +128,11 @@ T["conceal"]["extmarks persist after BufWritePost"] = function()
 	eq(marks[3][4].hl_group, "BibCiteKey")
 end
 
+T["conceal"]["skips code fences"] = function()
+	local extmarks = setup_conceal("```markdown\n@ABC123#smith2020\n```")
+
+	-- No extmarks inside code fences
+	eq(#extmarks, 0)
+end
+
 return T

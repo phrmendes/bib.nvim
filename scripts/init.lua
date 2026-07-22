@@ -38,4 +38,9 @@ if #vim.api.nvim_list_uis() == 0 then
 	if not vim.iter(vim.opt.runtimepath:get()):find(function(p) return p == pkg_rtp end) then vim.opt.runtimepath:append(pkg_rtp) end
 
 	require("mini.test").setup()
+	require("mini.doc").setup({
+		hooks = {
+			doc_pre = function(lines) return lines end,
+		},
+	})
 end

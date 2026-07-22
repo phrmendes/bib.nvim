@@ -1,0 +1,3 @@
+bib.get()	bib.txt	/*bib.get()*
+bib.setup()	bib.txt	/*bib.setup()*
+defaults	bib.txt	/*defaults*

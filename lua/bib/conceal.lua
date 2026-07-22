@@ -23,8 +23,16 @@ function conceal.setup(bufnr)
 			vim.api.nvim_buf_clear_namespace(bufnr, namespace, 0, -1)
 
 			local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+			local skip = { fenced_code_block = true, code_fence_content = true, code_span = true }
 
 			vim.iter(ipairs(lines)):each(function(lnum, line)
+				local node = vim.treesitter.get_node({ bufnr = bufnr, pos = { lnum - 1, 0 } })
+
+				while node do
+					if skip[node:type()] then return end
+					node = node:parent()
+				end
+
 				vim.iter(collect_marks(line)):each(function(mark) vim.api.nvim_buf_set_extmark(bufnr, namespace, lnum - 1, mark.col, mark.opts) end)
 			end)
 		end,
