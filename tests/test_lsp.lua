@@ -80,4 +80,36 @@ T["lsp_handlers"]["completion returns empty inside code fence"] = function()
 	eq(#r.result.items, 0)
 end
 
+T["lsp_handlers"]["code action returns pdf and note for zotero citation"] = function()
+	local dir = u.temp_dir()
+	local db_path = u.setup_zotero_db(child, dir)
+	local md = vim.fs.joinpath(dir, "paper.md")
+	u.write_file(child, md, "# Hello\n\nSee @ABC123#smith2020.")
+	child.lua(string.format("vim.cmd.edit(%q)", md))
+	child.lua(string.format("require('bib').setup({ zotero = { database = %q } })", db_path))
+	child.lua("require('bib.lsp').pick(vim.api.nvim_get_current_buf())")
+
+	eq(child.lua_get("type(require('bib.lsp').backend())"), "table")
+	eq(child.lua_get("require('bib.utils.lsp').citekey_at(vim.api.nvim_get_current_buf(), 2, 13)"), "ABC123#smith2020")
+
+	child.lua([[
+		_G._result = nil
+		local server = require("bib.lsp").server()
+		server.request("textDocument/codeAction", {
+			textDocument = { uri = vim.uri_from_bufnr(0) },
+			range = { start = { line = 2, character = 13 }, ["end"] = { line = 2, character = 22 } },
+		}, function(err, result)
+			_G._result = { err = err or vim.NIL, result = result or vim.NIL }
+		end)
+	]])
+
+	local r = child.lua_get("_G._result")
+	eq(r.err, vim.NIL)
+	eq(#r.result, 2)
+
+	local titles = vim.iter(r.result):map(function(a) return a.title end):totable()
+	eq(titles[1], "Open PDF")
+	eq(titles[2], "Get notes from Zotero")
+end
+
 return T

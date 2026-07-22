@@ -16,6 +16,7 @@ in
 
   packages = with pkgs; [
     sqlite
+    pandoc
   ];
 
   env = {

@@ -1,5 +1,6 @@
--- Get notes for a specific item by its itemID
--- Parameter: :itemID
+-- Get notes for a specific item by its key
+-- Parameter: :key
 SELECT note, title
 FROM itemNotes
-WHERE parentItemID = :itemID
+JOIN items ON itemNotes.parentItemID = items.itemID
+WHERE items.key = :key

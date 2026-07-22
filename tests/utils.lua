@@ -143,8 +143,10 @@ utils.setup_zotero_db_malformed = function(child, dir)
 	return db_path
 end
 
----@type table
+---@class TestZotero
 ---@field setup_zotero_full fun(child: MiniTest.child): {dir: string, db_path: string}
+
+---@type TestZotero
 utils.zotero = {}
 
 --- Set up a Zotero-backed buffer with the database loaded

@@ -73,4 +73,64 @@ vim
 		end
 	end)
 
+T["format"] = test.new_set()
+
+T["format"]["format_item returns author - title"] = function()
+	child.lua("_G._e = { fields = { author = 'John Smith', title = 'Test Paper' }, citekey = 'smith2020' }")
+	eq(child.lua_get("require('bib.utils').format_item(_G._e)"), "Smith - Test Paper")
+end
+
+T["format"]["format_item returns author (year) - title"] = function()
+	child.lua("_G._e = { fields = { author = 'John Smith', title = 'Test', year = '2020' }, citekey = 'smith2020' }")
+	eq(child.lua_get("require('bib.utils').format_item(_G._e)"), "Smith (2020) - Test")
+end
+
+T["format"]["format_item uses et al for 3+ authors"] = function()
+	child.lua("_G._e = { fields = { author = 'A, B, C', title = 'Test' }, citekey = 'x' }")
+	eq(child.lua_get("require('bib.utils').format_item(_G._e)"), "A et al - Test")
+end
+
+T["format"]["format_item prefers creators.author over fields.author"] = function()
+	child.lua("_G._e = { creators = { author = 'Smith, John' }, fields = { author = 'Old Name', title = 'Test' }, citekey = 'x' }")
+	eq(child.lua_get("require('bib.utils').format_item(_G._e)"), "Smith, John - Test")
+end
+
+T["format"]["display_key prefers citekey over key"] = function()
+	child.lua("_G._e = { citekey = 'smith2020', key = 'ABC#smith2020' }")
+	eq(child.lua_get("require('bib.utils').display_key(_G._e)"), "smith2020")
+end
+
+T["format"]["display_key falls back to key"] = function()
+	child.lua("_G._e = { key = 'smith2020' }")
+	eq(child.lua_get("require('bib.utils').display_key(_G._e)"), "smith2020")
+end
+
+T["ts"] = test.new_set()
+
+T["ts"]["capture_ids builds name->id map"] = function()
+	local ids = require("bib.ts").capture_ids({ captures = { [3] = "author", [7] = "title" } })
+	eq(ids.author, 3)
+	eq(ids.title, 7)
+end
+
+T["selection"] = test.new_set()
+
+T["selection"]["handle_selection opens zotero URI for zotkey"] = function()
+	child.lua([[
+		_G._opened = nil
+		vim.ui.open = function(uri) _G._opened = uri end
+		require('bib.utils').handle_selection({ zotkey = 'ABC123' })
+	]])
+	eq(child.lua_get("_G._opened"), "zotero://select/library/items/ABC123")
+end
+
+T["selection"]["handle_selection returns early for nil item"] = function()
+	child.lua([[
+		_G._opened = nil
+		vim.ui.open = function(uri) _G._opened = uri end
+		require('bib.utils').handle_selection(nil)
+	]])
+	eq(child.lua_get("_G._opened"), vim.NIL)
+end
+
 return T

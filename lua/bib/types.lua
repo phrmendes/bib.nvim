@@ -16,6 +16,7 @@
 ---@class BibLspParams
 ---@field textDocument {uri: string}
 ---@field position {line: integer, character: integer}
+---@field range? {start: {line: integer, character: integer}, ["end"]: {line: integer, character: integer}}
 
 ---@class BibLspCompletionItem : BibLspParams
 ---@field textEdit {newText: string}

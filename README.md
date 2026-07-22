@@ -45,16 +45,9 @@ The LSP attaches automatically. Completion triggers on `@` (Markdown) or inside 
 ## Configuration
 
 ```lua
-require("bib").setup({
-  filetypes = { "markdown", "tex" },
-})
+require("bib").setup({ filetypes = { "markdown", "tex" }})
 ```
 
 ## License
 
 Apache-2.0
-
-## Roadmap
-
-- [ ] Notes: code action inserts note below citation
-- [ ] PDF: code action opens attached PDF in system viewer

@@ -25,6 +25,8 @@ handlers["initialize"] = function(_, callback)
 			textDocument = { completion = { completionItem = { snippetSupport = false } } },
 			definitionProvider = true,
 			hoverProvider = true,
+			codeActionProvider = true,
+			executeCommandProvider = { commands = { "bib.open_pdf" } },
 			completionProvider = { resolveProvider = true },
 		},
 	})
@@ -161,6 +163,28 @@ handlers["textDocument/hover"] = function(params, callback)
 	callback(nil, { contents = { kind = "markdown", value = content } })
 end
 
+handlers["textDocument/codeAction"] = function(params, callback)
+	if not state.backend then
+		callback(nil, nil)
+		return
+	end
+
+	local key = citekey_at(vim.uri_to_bufnr(params.textDocument.uri), params.range.start.line, params.range.start.character)
+	local entry = key and state.backend.get(key)
+
+	if not entry or not entry.zotkey then
+		callback(nil, nil)
+		return
+	end
+
+	callback(nil, require("bib.utils.actions").build(entry, params))
+end
+
+handlers["workspace/executeCommand"] = function(params, callback)
+	if params.command == "bib.open_pdf" and params.arguments and params.arguments[1] then vim.ui.open(params.arguments[1]) end
+	callback(nil, nil)
+end
+
 handlers.notify = {}
 
 handlers.notify["initialized"] = function()
@@ -168,14 +192,16 @@ handlers.notify["initialized"] = function()
 	local zotero = require("bib.backends.zotero")
 	if pcall(zotero.load) then state.backend = zotero end
 
+	vim.iter(vim.api.nvim_list_bufs()):each(function(buf)
+		if vim.tbl_contains({ "markdown", "tex" }, vim.bo[buf].filetype) and state.backend then require("bib.conceal").setup(buf) end
+	end)
+
 	vim.api.nvim_create_autocmd("BufWinEnter", {
 		group = vim.api.nvim_create_augroup("BibConcealInit", { clear = true }),
 		callback = function(args)
 			if state.backend then require("bib.conceal").setup(args.buf) end
 		end,
 	})
-
-	vim.api.nvim_exec_autocmds("BufWinEnter", {})
 end
 
 ---@return BibLspServer
@@ -209,7 +235,7 @@ function lsp.backend() return state.backend end
 function lsp.pick(bufnr)
 	local bib = require("bib.backends.bib")
 
-	if pcall(bib.load, bufnr) then
+	if pcall(bib.load, bufnr) and #bib.all() > 0 then
 		state.backend = bib
 		return state.backend
 	end
