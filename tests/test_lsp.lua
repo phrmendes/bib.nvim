@@ -39,13 +39,15 @@ end
 
 T["lsp_handlers"] = test.new_set()
 
+local completion_kind = 18
+
 T["lsp_handlers"]["completion returns items matching prefix"] = function()
 	local dir = setup_handler("---\nbibliography: refs.bib\n---\n\nSee @smi")
 	local r = u.lsp_request(child, "textDocument/completion", { line = 4, character = 7 })
 	eq(r.err, vim.NIL)
 	eq(#r.result.items, 1)
 	eq(r.result.items[1].textEdit.newText, "smith2020")
-	eq(r.result.items[1].kind, 18)
+	eq(r.result.items[1].kind, completion_kind)
 end
 
 T["lsp_handlers"]["completion returns empty when no key"] = function()

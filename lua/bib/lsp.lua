@@ -17,7 +17,16 @@ local state = {
 ---@type table
 local handlers = {}
 
----@param _ table
+--- Try to load a backend if none is active
+local function ensure_backend()
+	if state.backend then return true end
+	local zotero = require("bib.backends.zotero")
+	if pcall(zotero.load) then
+		state.backend = zotero
+		return true
+	end
+end
+
 ---@param callback BibLspCallback
 handlers["initialize"] = function(_, callback)
 	callback(nil, {
@@ -65,7 +74,7 @@ handlers["textDocument/completion"] = function(params, callback)
 			["end"] = { line = lnum, character = char },
 		}
 
-		if not state.backend then
+		if not ensure_backend() then
 			callback(nil, { isIncomplete = false, items = {} })
 			return
 		end
@@ -96,7 +105,7 @@ end
 ---@param params BibLspCompletionItem
 ---@param callback BibLspCallback
 handlers["completionItem/resolve"] = function(params, callback)
-	if not state.backend then
+	if not ensure_backend() then
 		callback(nil, params)
 		return
 	end
@@ -121,7 +130,7 @@ end
 ---@param params BibLspParams
 ---@param callback BibLspCallback
 handlers["textDocument/definition"] = function(params, callback)
-	if not state.backend then
+	if not ensure_backend() then
 		callback(nil, nil)
 		return
 	end
@@ -141,7 +150,7 @@ end
 ---@param params BibLspParams
 ---@param callback BibLspCallback
 handlers["textDocument/hover"] = function(params, callback)
-	if not state.backend then
+	if not ensure_backend() then
 		callback(nil, nil)
 		return
 	end
@@ -164,7 +173,7 @@ handlers["textDocument/hover"] = function(params, callback)
 end
 
 handlers["textDocument/codeAction"] = function(params, callback)
-	if not state.backend then
+	if not ensure_backend() then
 		callback(nil, nil)
 		return
 	end
@@ -172,7 +181,7 @@ handlers["textDocument/codeAction"] = function(params, callback)
 	local key = citekey_at(vim.uri_to_bufnr(params.textDocument.uri), params.range.start.line, params.range.start.character)
 	local entry = key and state.backend.get(key)
 
-	if not entry or not entry.zotkey then
+	if not entry then
 		callback(nil, nil)
 		return
 	end
@@ -187,22 +196,7 @@ end
 
 handlers.notify = {}
 
-handlers.notify["initialized"] = function()
-	state.stopped = false
-	local zotero = require("bib.backends.zotero")
-	if pcall(zotero.load) then state.backend = zotero end
-
-	vim.iter(vim.api.nvim_list_bufs()):each(function(buf)
-		if vim.tbl_contains({ "markdown", "tex" }, vim.bo[buf].filetype) and state.backend then require("bib.conceal").setup(buf) end
-	end)
-
-	vim.api.nvim_create_autocmd("BufWinEnter", {
-		group = vim.api.nvim_create_augroup("BibConcealInit", { clear = true }),
-		callback = function(args)
-			if state.backend then require("bib.conceal").setup(args.buf) end
-		end,
-	})
-end
+handlers.notify["initialized"] = function() state.stopped = false end
 
 ---@return BibLspServer
 function lsp.server()
@@ -249,18 +243,17 @@ end
 
 function lsp.attach()
 	vim.api.nvim_create_autocmd("LspAttach", {
-		pattern = state.name,
 		group = vim.api.nvim_create_augroup("BibLspAttach", { clear = true }),
 		callback = function(args)
+			local client = vim.lsp.get_client_by_id(args.data.client_id)
+			if not client or client.name ~= state.name then return end
+
 			local bufnr = args.buf
 
 			if not lsp.pick(bufnr) then
-				local client = vim.lsp.get_client_by_id(args.data.client_id)
-				if client then client:stop() end
+				client:stop()
 				return
 			end
-
-			require("bib.conceal").setup(bufnr)
 
 			vim.api.nvim_create_autocmd("BufWritePost", {
 				buffer = bufnr,

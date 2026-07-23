@@ -39,4 +39,12 @@ function conceal.setup(bufnr)
 	})
 end
 
+--- Register BufWinEnter autocmd to apply conceal to any markdown/tex buffer
+function conceal.enable()
+	vim.api.nvim_create_autocmd("BufWinEnter", {
+		group = vim.api.nvim_create_augroup("BibConcealInit", { clear = true }),
+		callback = function(args) conceal.setup(args.buf) end,
+	})
+end
+
 return conceal

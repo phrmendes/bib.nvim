@@ -22,61 +22,56 @@ local function setup_conceal(content)
   ]])
 end
 
+local function col(marks, i) return marks[i][3] end
+local function end_col(marks, i) return marks[i][4].end_col end
+local function hl(marks, i) return marks[i][4].hl_group end
+local function conceal(marks, i) return marks[i][4].conceal end
+
 T["conceal"]["extmarks placed at correct 0-indexed columns"] = function()
 	local extmarks = setup_conceal("see @ABC123#smith2020 for details")
 
 	eq(#extmarks, 3)
-
-	-- Extmark 1: @ at 0-indexed col 4 (end_col=5 is default, not in details)
-	eq(extmarks[1][3], 4)
-	eq(extmarks[1][4].hl_group, "BibCitePrefix")
-
-	-- Extmark 2: ABC123# at 0-indexed col 5-12, concealed
-	eq(extmarks[2][3], 5)
-	eq(extmarks[2][4].end_col, 12)
-	eq(extmarks[2][4].conceal, "")
-
-	-- Extmark 3: smith2020 at 0-indexed col 12-21, BibCiteKey
-	eq(extmarks[3][3], 12)
-	eq(extmarks[3][4].end_col, 21)
-	eq(extmarks[3][4].hl_group, "BibCiteKey")
+	eq(col(extmarks, 1), 4)
+	eq(hl(extmarks, 1), "BibCitePrefix")
+	eq(col(extmarks, 2), 5)
+	eq(end_col(extmarks, 2), 12)
+	eq(conceal(extmarks, 2), "")
+	eq(col(extmarks, 3), 12)
+	eq(end_col(extmarks, 3), 21)
+	eq(hl(extmarks, 3), "BibCiteKey")
 end
 
 T["conceal"]["skips citekey extmark when no citekey follows prefix"] = function()
 	local extmarks = setup_conceal("see @ABC123# and more text")
 
-	-- Only 2 extmarks: @ and ITEMID#, no citekey
 	eq(#extmarks, 2)
-
-	eq(extmarks[1][3], 4)
-	eq(extmarks[1][4].hl_group, "BibCitePrefix")
-
-	eq(extmarks[2][3], 5)
-	eq(extmarks[2][4].end_col, 12)
-	eq(extmarks[2][4].conceal, "")
+	eq(col(extmarks, 1), 4)
+	eq(hl(extmarks, 1), "BibCitePrefix")
+	eq(col(extmarks, 2), 5)
+	eq(end_col(extmarks, 2), 12)
+	eq(conceal(extmarks, 2), "")
 end
 
 T["conceal"]["handles multiple prefixes on one line"] = function()
 	local extmarks = setup_conceal("see @ABC123#smith2020 and @DEF456#jones2021")
 
-	-- 6 extmarks: 3 per prefix
 	eq(#extmarks, 6)
 
-	-- First prefix: @ at 4, ABC123# at 5-12, smith2020 at 12-21
-	eq(extmarks[1][3], 4)
-	eq(extmarks[2][3], 5)
-	eq(extmarks[2][4].end_col, 12)
-	eq(extmarks[2][4].conceal, "")
-	eq(extmarks[3][3], 12)
-	eq(extmarks[3][4].end_col, 21)
+	local at1, prefix1_end, citekey1_start, citekey1_end = 4, 12, 12, 21
+	eq(col(extmarks, 1), at1)
+	eq(col(extmarks, 2), at1 + 1)
+	eq(end_col(extmarks, 2), prefix1_end)
+	eq(conceal(extmarks, 2), "")
+	eq(col(extmarks, 3), citekey1_start)
+	eq(end_col(extmarks, 3), citekey1_end)
 
-	-- Second prefix: @ at 26, DEF456# at 27-34, jones2021 at 34-43
-	eq(extmarks[4][3], 26)
-	eq(extmarks[5][3], 27)
-	eq(extmarks[5][4].end_col, 34)
-	eq(extmarks[5][4].conceal, "")
-	eq(extmarks[6][3], 34)
-	eq(extmarks[6][4].end_col, 43)
+	local at2, prefix2_end, citekey2_start, citekey2_end = 26, 34, 34, 43
+	eq(col(extmarks, 4), at2)
+	eq(col(extmarks, 5), at2 + 1)
+	eq(end_col(extmarks, 5), prefix2_end)
+	eq(conceal(extmarks, 5), "")
+	eq(col(extmarks, 6), citekey2_start)
+	eq(end_col(extmarks, 6), citekey2_end)
 end
 
 T["conceal"]["extmarks update after text changed"] = function()
@@ -87,7 +82,6 @@ T["conceal"]["extmarks update after text changed"] = function()
 	child.lua("require('bib.conceal').setup(vim.api.nvim_get_current_buf())")
 	child.lua("vim.api.nvim_exec_autocmds('BufWinEnter', { buffer = 0 })")
 
-	-- Replace the line with new citekey
 	child.lua("vim.api.nvim_buf_set_lines(0, 0, 1, false, {'see @ABC123#jones2021 for details'})")
 	child.lua("vim.api.nvim_exec_autocmds('TextChanged', { buffer = 0 })")
 
@@ -99,22 +93,17 @@ T["conceal"]["extmarks update after text changed"] = function()
 	]])
 
 	eq(#extmarks, 3)
-
-	-- Prefix extmarks unchanged
-	eq(extmarks[1][3], 4) -- @
-	eq(extmarks[2][3], 5) -- ABC123# (concealed)
-	eq(extmarks[2][4].conceal, "")
-
-	-- Citekey extmark now covers "jones2021" at cols 12-21
-	eq(extmarks[3][3], 12)
-	eq(extmarks[3][4].end_col, 21)
-	eq(extmarks[3][4].hl_group, "BibCiteKey")
+	eq(col(extmarks, 1), 4)
+	eq(col(extmarks, 2), 5)
+	eq(conceal(extmarks, 2), "")
+	eq(col(extmarks, 3), 12)
+	eq(end_col(extmarks, 3), 21)
+	eq(hl(extmarks, 3), "BibCiteKey")
 end
 
 T["conceal"]["extmarks persist after BufWritePost"] = function()
 	local extmarks = setup_conceal("see @ABC123#smith2020 for details")
 
-	-- Trigger BufWritePost — content unchanged
 	child.lua("vim.api.nvim_exec_autocmds('BufWritePost', { buffer = 0 })")
 
 	local marks = child.lua([[
@@ -125,14 +114,23 @@ T["conceal"]["extmarks persist after BufWritePost"] = function()
 	]])
 
 	eq(#marks, 3)
-	eq(marks[3][4].hl_group, "BibCiteKey")
+	eq(hl(marks, 3), "BibCiteKey")
 end
 
 T["conceal"]["skips code fences"] = function()
 	local extmarks = setup_conceal("```markdown\n@ABC123#smith2020\n```")
-
-	-- No extmarks inside code fences
 	eq(#extmarks, 0)
+end
+
+T["conceal"]["plain @citekey gets prefix and key marks"] = function()
+	local extmarks = setup_conceal("see @smith2020 for details")
+
+	eq(#extmarks, 2)
+	eq(col(extmarks, 1), 4)
+	eq(hl(extmarks, 1), "BibCitePrefix")
+	eq(col(extmarks, 2), 5)
+	eq(end_col(extmarks, 2), 14)
+	eq(hl(extmarks, 2), "BibCiteKey")
 end
 
 return T

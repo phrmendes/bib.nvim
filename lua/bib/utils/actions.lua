@@ -1,11 +1,14 @@
+local patterns = require("bib.patterns")
+
 ---@type table
 local actions = {}
 
 --- Build code actions for a Zotero entry
----@param entry ZoteroEntry
+---@param entry BibEntry|ZoteroEntry
 ---@param params table LSP code action params
 ---@return table[]
 function actions.build(entry, params)
+	if not entry.zotkey then return {} end
 	local backends = require("bib.utils.backends")
 	local db_path = backends.find_zotero_db()
 	if not db_path then return {} end
@@ -20,7 +23,7 @@ function actions.build(entry, params)
 	if pdfs and #pdfs > 0 then
 		local pdf_path = pdfs[1].path
 
-		if pdf_path:find("^storage:") then pdf_path = vim.fs.joinpath(vim.fs.dirname(db_path), "storage", pdfs[1].attachKey, pdf_path:sub(9)) end
+		if pdf_path:find(patterns.storage_prefix) then pdf_path = vim.fs.joinpath(vim.fs.dirname(db_path), "storage", pdfs[1].attachKey, pdf_path:sub(9)) end
 
 		result[#result + 1] = {
 			title = "Open PDF",

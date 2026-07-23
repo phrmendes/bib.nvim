@@ -1,10 +1,9 @@
+---@diagnostic disable: param-type-mismatch
 local test = require("mini.test")
 local eq = test.expect.equality
 
 local utils = {}
 
---- Create a temporary directory for tests
----@return string
 utils.temp_dir = function()
 	local id = string.format("%d_%d", vim.uv.now(), math.random(1000, 9999))
 	local dir = vim.fs.joinpath("/tmp", "bib.nvim", "test_" .. id)
@@ -12,9 +11,6 @@ utils.temp_dir = function()
 	return dir
 end
 
---- Create a child Neovim process with test hooks
----@return table child
----@return table T
 utils.new_child_set = function()
 	local child = test.new_child_neovim()
 	local T = test.new_set({
@@ -30,30 +26,15 @@ utils.new_child_set = function()
 	return child, T
 end
 
---- Write a file in a child process
----@param child MiniTest.child
----@param path string
----@param content string
 utils.write_file = function(child, path, content)
 	local lines = vim.iter(vim.split(content, "\n")):map(function(line) return string.format("%q", line) end):totable()
 	child.lua(string.format("vim.fn.writefile({ %s }, %q)", table.concat(lines, ", "), path))
 end
 
---- Read a file in a child process
----@param child MiniTest.child
----@param path string
----@return string[]
 utils.read_file = function(child, path) return child.lua_get(string.format("vim.fn.readfile(%q)", path)) end
 
---- Assert file exists
----@param child MiniTest.child
----@param path string
 utils.assert_file_exists = function(child, path) eq(child.lua_get(string.format("vim.uv.fs_stat(%q) ~= nil", path)), true) end
 
---- Set up a bib backend in a child process with a .bib file and markdown buffer
----@param child MiniTest.child
----@param bib_content string
----@return string dir
 utils.setup_bib = function(child, bib_content)
 	local dir = utils.temp_dir()
 	utils.write_file(child, vim.fs.joinpath(dir, "refs.bib"), bib_content)
@@ -63,10 +44,6 @@ utils.setup_bib = function(child, bib_content)
 	return dir
 end
 
---- Set up a Zotero test database in a child process
----@param child MiniTest.child
----@param dir string
----@return string db_path
 utils.setup_zotero_db = function(child, dir)
 	local db_path = vim.fs.joinpath(dir, "zotero.sqlite")
 	local sql = string.format(
@@ -101,10 +78,6 @@ utils.setup_zotero_db = function(child, dir)
 	return db_path
 end
 
---- Set up an empty Zotero database (tables but no data)
----@param child MiniTest.child
----@param dir string
----@return string db_path
 utils.setup_zotero_db_empty = function(child, dir)
 	local db_path = vim.fs.joinpath(dir, "zotero.sqlite")
 	local sql = string.format(
@@ -124,10 +97,6 @@ utils.setup_zotero_db_empty = function(child, dir)
 	return db_path
 end
 
---- Set up a malformed Zotero database (wrong schema)
----@param child MiniTest.child
----@param dir string
----@return string db_path
 utils.setup_zotero_db_malformed = function(child, dir)
 	local db_path = vim.fs.joinpath(dir, "zotero.sqlite")
 	local sql = string.format(
@@ -145,13 +114,9 @@ end
 
 ---@class TestZotero
 ---@field setup_zotero_full fun(child: MiniTest.child): {dir: string, db_path: string}
-
 ---@type TestZotero
 utils.zotero = {}
 
---- Set up a Zotero-backed buffer with the database loaded
----@param child MiniTest.child
----@return string dir, string db_path
 function utils.zotero.setup(child)
 	local dir = utils.temp_dir()
 	local db_path = utils.setup_zotero_db(child, dir)
@@ -163,12 +128,6 @@ function utils.zotero.setup(child)
 	return dir, db_path
 end
 
---- Send an LSP request in the child process and return the result
----@param child MiniTest.child
----@param method string
----@param position {line: integer, character: integer}
----@param wait? boolean Use vim.wait for async completion handlers
----@return table
 function utils.lsp_request(child, method, position, wait)
 	child.lua(string.format(
 		[[

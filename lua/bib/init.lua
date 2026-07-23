@@ -9,6 +9,7 @@
 ---@module "bib"
 
 local c = require("bib.constants")
+local patterns = require("bib.patterns")
 
 ---@type BibConfig
 local defaults = {
@@ -34,6 +35,8 @@ function bib.setup(opts)
 
 	vim.lsp.enable("bib_ls")
 
+	require("bib.conceal").enable()
+
 	vim.api.nvim_create_user_command("Bib", function(args)
 		local parts = vim.split(args.args, " ", { trimempty = true })
 		if #parts == 0 then return end
@@ -41,7 +44,7 @@ function bib.setup(opts)
 	end, {
 		nargs = "*",
 		complete = function(arglead, cmdline)
-			if not cmdline:find("Bib%s+search") then return vim.startswith("search", arglead) and { "search" } or {} end
+			if not cmdline:find(patterns.bib_search) then return vim.startswith("search", arglead) and { "search" } or {} end
 			return vim.startswith("zotero", arglead) and { "zotero" } or {}
 		end,
 		desc = "Search bibliography entries",

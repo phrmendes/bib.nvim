@@ -45,4 +45,5 @@ deps/
 .devenv
 todo.txt
 .pre-commit-config.yaml
-.pre-commit-config.yaml
+references.bib
+.bib.json
