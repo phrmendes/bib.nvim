@@ -35,7 +35,7 @@ function bib.setup(opts)
 
 	vim.lsp.enable("bib_ls")
 
-	require("bib.conceal").enable()
+	require("bib.conceal").enable(bib.options.filetypes)
 
 	vim.api.nvim_create_user_command("Bib", function(args)
 		local parts = vim.split(args.args, " ", { trimempty = true })

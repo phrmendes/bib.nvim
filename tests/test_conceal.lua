@@ -133,4 +133,46 @@ T["conceal"]["plain @citekey gets prefix and key marks"] = function()
 	eq(hl(extmarks, 2), "BibCiteKey")
 end
 
+T["conceal"]["ignores unconfigured filetypes"] = function()
+	child.lua([[
+		require('bib.conceal').enable({'markdown', 'tex'})
+		vim.cmd('enew')
+		vim.api.nvim_buf_set_lines(0, 0, -1, false, {'see @decorator for details'})
+		vim.bo.filetype = 'python'
+	]])
+	child.lua("vim.api.nvim_exec_autocmds('BufWinEnter', { buffer = 0 })")
+	local bufnr = child.lua_get("vim.api.nvim_get_current_buf()")
+	local ok = child.lua_get(string.format("pcall(vim.api.nvim_get_autocmds, { group = 'BibConceal%d' })", bufnr))
+	eq(ok, false)
+end
+
+T["conceal"]["sets up configured filetypes via FileType"] = function()
+	child.lua([[
+		require('bib.conceal').enable({'markdown', 'tex'})
+		vim.cmd('enew')
+		vim.api.nvim_buf_set_lines(0, 0, -1, false, {'see @smith2020 for details'})
+		vim.bo.filetype = 'markdown'
+	]])
+	child.lua("vim.api.nvim_exec_autocmds('BufWinEnter', { buffer = 0 })")
+	local extmarks = child.lua([[
+		local ns = vim.api.nvim_get_namespaces()["bib_conceal"]
+		local marks = vim.api.nvim_buf_get_extmarks(0, ns, 0, -1, { details = true })
+		table.sort(marks, function(a, b) return a[3] < b[3] end)
+		return marks
+	]])
+	eq(#extmarks, 2)
+	eq(hl(extmarks, 1), "BibCitePrefix")
+	eq(hl(extmarks, 2), "BibCiteKey")
+end
+
+T["conceal"]["sets conceallevel on BufWinEnter"] = function()
+	child.lua([[
+		require('bib.conceal').enable({'markdown', 'tex'})
+		vim.cmd('enew')
+		vim.bo.filetype = 'markdown'
+	]])
+	child.lua("vim.api.nvim_exec_autocmds('BufWinEnter', { buffer = 0 })")
+	eq(child.lua_get("vim.wo.conceallevel"), 2)
+end
+
 return T

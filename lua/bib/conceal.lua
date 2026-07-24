@@ -6,20 +6,16 @@ local namespace = vim.api.nvim_create_namespace("bib_conceal")
 local conceal = {}
 
 ---@param bufnr integer
+---@return nil
 function conceal.setup(bufnr)
 	if vim.api.nvim_get_option_value("buftype", { buf = bufnr }) ~= "" then return end
-
-	vim.api.nvim_set_hl(0, "BibCitePrefix", { link = "Comment", default = true })
-	vim.api.nvim_set_hl(0, "BibCiteKey", { link = "@string.special", default = true })
-
-	local win = vim.fn.bufwinid(bufnr)
-
-	if win ~= -1 then vim.api.nvim_set_option_value("conceallevel", c.CONCEAL_LEVEL, { scope = "local", win = win }) end
 
 	vim.api.nvim_create_autocmd({ "BufWinEnter", "InsertLeave", "TextChanged", "BufWritePost" }, {
 		buffer = bufnr,
 		group = vim.api.nvim_create_augroup("BibConceal" .. bufnr, { clear = true }),
-		callback = function()
+		callback = function(args)
+			if args.event == "BufWinEnter" then vim.api.nvim_set_option_value("conceallevel", c.CONCEAL_LEVEL, { scope = "local" }) end
+
 			vim.api.nvim_buf_clear_namespace(bufnr, namespace, 0, -1)
 
 			local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
@@ -39,9 +35,15 @@ function conceal.setup(bufnr)
 	})
 end
 
---- Register BufWinEnter autocmd to apply conceal to any markdown/tex buffer
-function conceal.enable()
-	vim.api.nvim_create_autocmd("BufWinEnter", {
+--- Register FileType autocmd to apply conceal to configured filetypes
+---@param filetypes string[]
+---@return nil
+function conceal.enable(filetypes)
+	vim.api.nvim_set_hl(0, "BibCitePrefix", { link = "Comment", default = true })
+	vim.api.nvim_set_hl(0, "BibCiteKey", { link = "@string.special", default = true })
+
+	vim.api.nvim_create_autocmd("FileType", {
+		pattern = filetypes,
 		group = vim.api.nvim_create_augroup("BibConcealInit", { clear = true }),
 		callback = function(args) conceal.setup(args.buf) end,
 	})
