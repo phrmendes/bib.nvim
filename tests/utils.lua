@@ -132,7 +132,7 @@ function utils.lsp_request(child, method, position, wait)
 	child.lua(string.format(
 		[[
 		_G._result = nil
-		local server = require("bib.lsp").server()
+		local server = require("bib.lsp").server({ on_exit = function() end })
 		server.request("%s", {
 			textDocument = { uri = vim.uri_from_bufnr(0) },
 			position = { line = %d, character = %d },

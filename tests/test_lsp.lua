@@ -10,8 +10,8 @@ T["lsp_start"] = test.new_set()
 
 vim
 	.iter({
-		{ name = "attaches lsp client when bib found", content = entry },
-		{ name = "attaches lsp client when no bib file", content = nil },
+		{ name = "attaches lsp client when bib found", content = entry, expected = true },
+		{ name = "stops client when no backend available", content = nil, expected = false },
 	})
 	:each(function(c)
 		T["lsp_start"][c.name] = function()
@@ -22,7 +22,7 @@ vim
 			child.lua(string.format("vim.cmd.edit(%q)", md))
 			child.lua("require('bib').setup({ zotero = { database = '/tmp/nonexistent.sqlite' } })")
 			local has = child.lua_get("(function() for _, c in ipairs(vim.lsp.get_clients({bufnr=0})) do if c.name == 'bib_ls' then return true end end; return false end)()")
-			eq(has, true)
+			eq(has, c.expected)
 		end
 	end)
 

@@ -31,7 +31,6 @@ end
 handlers["initialize"] = function(_, callback)
 	callback(nil, {
 		capabilities = {
-			textDocument = { completion = { completionItem = { snippetSupport = false } } },
 			definitionProvider = true,
 			hoverProvider = true,
 			codeActionProvider = true,
@@ -41,7 +40,10 @@ handlers["initialize"] = function(_, callback)
 	})
 end
 
-handlers["shutdown"] = function() state.stopped = true end
+handlers["shutdown"] = function(_, callback)
+	state.stopped = true
+	callback(nil, nil)
+end
 
 ---@param params BibLspParams
 ---@param callback BibLspCallback
@@ -196,22 +198,34 @@ end
 
 handlers.notify = {}
 
-handlers.notify["initialized"] = function() state.stopped = false end
-
+---@param dispatchers vim.lsp.rpc.Dispatchers
 ---@return BibLspServer
-function lsp.server()
+function lsp.server(dispatchers)
+	state.stopped = false
 	return {
-		request = function(method, params, callback, _)
+		request = function(method, params, callback)
 			local handler = handlers[method]
 
 			if handler then
-				handler(params, callback)
-				return
+				local ok, err = pcall(handler, params, callback)
+				if not ok then
+					vim.notify(
+						"[bib.lsp] handler error (" .. method .. "): " .. tostring(err),
+						vim.log.levels.ERROR
+					)
+				end
+				return ok
 			end
 
 			callback(nil, nil)
+			return true
 		end,
 		notify = function(method, _)
+			if method == "exit" then
+				state.stopped = true
+				dispatchers.on_exit(0, 15)
+				return
+			end
 			local handler = handlers.notify[method]
 			if handler then handler() end
 		end,
