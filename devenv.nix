@@ -41,9 +41,9 @@ in
   };
 
   tasks = {
-    "bib:test".exec =
+    "test:run".exec =
       "${pkgs.neovim}/bin/nvim --headless --noplugin -u ./scripts/init.lua -c 'lua MiniTest.run()'";
-    "bib:doc".exec =
+    "doc:run".exec =
       "${pkgs.neovim}/bin/nvim --headless --noplugin -u ./scripts/init.lua -c 'lua MiniDoc.generate()'";
   };
 }
