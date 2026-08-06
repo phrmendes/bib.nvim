@@ -14,7 +14,7 @@ function actions.build(entry, params)
 	if not db_path then return {} end
 
 	local db = require("sqlite").new(db_path)
-	db:open()
+	db:open({ busy_timeout = 500 })
 
 	local result = {}
 

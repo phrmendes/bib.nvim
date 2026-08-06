@@ -250,7 +250,7 @@ backends.load = {
 ---@return string|nil
 function backends.find_zotero_db()
 	local cfg = require("bib").get()
-	if cfg.zotero and cfg.zotero.database then return cfg.zotero.database end
+	if cfg and cfg.zotero and cfg.zotero.database then return cfg.zotero.database end
 	return vim.fs.joinpath(vim.env.HOME, "Zotero", "zotero.sqlite")
 end
 

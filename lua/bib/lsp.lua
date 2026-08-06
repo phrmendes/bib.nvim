@@ -7,7 +7,7 @@ local citekey_at = require("bib.utils.lsp").citekey_at
 ---@type table
 local lsp = {}
 
----@type {name: string, stopped: boolean, backend: Backend|nil}
+---@type {name: string, stopped: boolean, backend: Backend|nil, notified: boolean|nil}
 local state = {
 	name = "bib_ls",
 	stopped = true,
@@ -21,10 +21,14 @@ local handlers = {}
 local function ensure_backend()
 	if state.backend then return true end
 	local zotero = require("bib.backends.zotero")
-	if pcall(zotero.load) then
+	local ok, err = pcall(zotero.load)
+
+	if ok then
 		state.backend = zotero
 		return true
 	end
+
+	vim.lsp.log.warn("[bib.lsp] zotero backend failed: " .. tostring(err))
 end
 
 ---@param callback BibLspCallback
@@ -208,12 +212,7 @@ function lsp.server(dispatchers)
 
 			if handler then
 				local ok, err = pcall(handler, params, callback)
-				if not ok then
-					vim.notify(
-						"[bib.lsp] handler error (" .. method .. "): " .. tostring(err),
-						vim.log.levels.ERROR
-					)
-				end
+				if not ok then vim.lsp.log.error("[bib.lsp] handler error (" .. method .. "): " .. tostring(err)) end
 				return ok
 			end
 
@@ -249,8 +248,13 @@ function lsp.pick(bufnr)
 	end
 
 	local zotero = require("bib.backends.zotero")
+	local ok, err = pcall(zotero.load)
 
-	if pcall(zotero.load) then state.backend = zotero end
+	if ok then
+		state.backend = zotero
+	else
+		vim.lsp.log.warn("[bib.lsp] zotero backend failed: " .. tostring(err))
+	end
 
 	return state.backend
 end
@@ -265,6 +269,10 @@ function lsp.attach()
 			local bufnr = args.buf
 
 			if not lsp.pick(bufnr) then
+				if not state.notified then
+					state.notified = true
+					vim.notify("[bib.lsp] no backend available, open ~/.local/state/nvim/lsp.log", vim.log.levels.WARN)
+				end
 				client:stop()
 				return
 			end
