@@ -5,11 +5,30 @@ local read_sql = require("bib.utils.backends").read_sql
 ---@type table
 local zotero = {}
 
----@type {entries: table<string, ZoteroEntry>, copy: {path: string|nil, mtime: integer}}
+---@type {entries: table<string, ZoteroEntry>, copy: {path: string|nil, mtime: number}}
 local state = {
 	entries = {},
 	copy = { path = nil, mtime = 0 },
 }
+
+--- SQLite keeps committed rows in the -wal file while Zotero runs. Copy all
+--- sidecar files, or the copy misses recent data.
+local DB_SIDECARS = { "", "-wal", "-shm" }
+
+---@param path string
+---@return number
+local function newest_mtime(path)
+	local newest = 0
+	for _, ext in ipairs(DB_SIDECARS) do
+		local stat = vim.uv.fs_stat(path .. ext)
+		if stat then newest = math.max(newest, stat.mtime.sec + stat.mtime.nsec / 1e9) end
+	end
+	return newest
+end
+
+--- Path of the local Zotero database copy, if it exists
+---@return string|nil
+function zotero.database_path() return state.copy.path or find_zotero_db() end
 
 --- Load state.entries from Zotero SQLite database
 ---@return nil
@@ -19,15 +38,22 @@ function zotero.load()
 	if not db_path or not vim.uv.fs_stat(db_path) then error("zotero database not found") end
 
 	if not state.copy.path then
-		local tmpdir = os.tmpname()
-		vim.uv.fs_unlink(tmpdir)
+		local tmpdir = vim.fn.tempname()
 		vim.uv.fs_mkdir(tmpdir, 448)
 		state.copy.path = vim.fs.joinpath(tmpdir, "zotero.db")
 	end
 
-	local mtime = vim.uv.fs_stat(db_path).mtime.sec
+	local mtime = newest_mtime(db_path)
 	if mtime > state.copy.mtime then
-		vim.uv.fs_copyfile(db_path, state.copy.path)
+		for _, ext in ipairs(DB_SIDECARS) do
+			local source, destination = db_path .. ext, state.copy.path .. ext
+			if vim.uv.fs_stat(source) then
+				local ok, err = vim.uv.fs_copyfile(source, destination)
+				if not ok then error("failed to copy " .. source .. ": " .. tostring(err)) end
+			else
+				vim.uv.fs_unlink(destination)
+			end
+		end
 		state.copy.mtime = mtime
 	end
 
@@ -37,6 +63,7 @@ function zotero.load()
 	local items = db:eval(read_sql("items"))
 	local creators = db:eval(read_sql("creators"))
 	db:close()
+	if type(creators) ~= "table" then creators = {} end
 
 	if not items or #items == 0 then error("zotero database is empty") end
 

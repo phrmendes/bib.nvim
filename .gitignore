@@ -47,3 +47,6 @@ todo.txt
 .pre-commit-config.yaml
 references.bib
 .bib.json
+
+# Share the devenv direnv entry point.
+!.envrc

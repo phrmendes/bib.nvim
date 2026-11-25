@@ -16,3 +16,4 @@ JOIN fields
 JOIN itemDataValues
   ON itemData.valueID = itemDataValues.valueID
 WHERE itemTypes.typeName NOT IN ('attachment', 'annotation', 'note')
+  AND items.itemID NOT IN (SELECT itemID FROM deletedItems)

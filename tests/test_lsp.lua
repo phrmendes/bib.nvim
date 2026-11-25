@@ -57,6 +57,17 @@ T["lsp_handlers"]["completion returns empty when no key"] = function()
 	eq(#r.result.items, 0)
 end
 
+T["lsp_handlers"]["initialize advertises utf-8 position encoding"] = function()
+	setup_handler("---\nbibliography: refs.bib\n---\n\nSee @smith2020")
+	local result = child.lua([[
+		local server = require('bib.lsp').server({ on_exit = function() end })
+		local result
+		server.request('initialize', { capabilities = {} }, function(_, value) result = value end)
+		return result
+	]])
+	eq(result.capabilities.positionEncoding, "utf-8")
+end
+
 T["lsp_handlers"]["definition returns bib file location"] = function()
 	local dir = setup_handler("---\nbibliography: refs.bib\n---\n\nSee @smith2020")
 	local r = u.lsp_request(child, "textDocument/definition", { line = 4, character = 12 }, false)
@@ -80,6 +91,32 @@ T["lsp_handlers"]["completion returns empty inside code fence"] = function()
 	local r = u.lsp_request(child, "textDocument/completion", { line = 4, character = 4 })
 	eq(r.err, vim.NIL)
 	eq(#r.result.items, 0)
+end
+
+T["lsp_handlers"]["keeps separate backends per buffer"] = function()
+	local dir_a = u.temp_dir()
+	local dir_b = u.temp_dir()
+	u.write_file(child, vim.fs.joinpath(dir_a, "a.bib"), "@article{alpha, title = {Alpha}}")
+	u.write_file(child, vim.fs.joinpath(dir_b, "b.bib"), "@article{beta, title = {Beta}}")
+
+	local md_a = vim.fs.joinpath(dir_a, "a.md")
+	local md_b = vim.fs.joinpath(dir_b, "b.md")
+	u.write_file(child, md_a, "---\nbibliography: a.bib\n---\n")
+	u.write_file(child, md_b, "---\nbibliography: b.bib\n---\n")
+
+	child.lua("require('bib').setup({ zotero = { database = '/tmp/nonexistent.sqlite' } })")
+
+	child.lua(string.format("vim.cmd.edit(%q)", md_a))
+	local buf_a = child.lua_get("vim.api.nvim_get_current_buf()")
+	child.lua(string.format("require('bib.lsp').pick(%d)", buf_a))
+
+	child.lua(string.format("vim.cmd.edit(%q)", md_b))
+	local buf_b = child.lua_get("vim.api.nvim_get_current_buf()")
+	child.lua(string.format("require('bib.lsp').pick(%d)", buf_b))
+
+	eq(child.lua_get(string.format("require('bib.lsp').backend(%d).get('alpha') ~= nil", buf_a)), true)
+	eq(child.lua_get(string.format("require('bib.lsp').backend(%d).get('beta') ~= nil", buf_b)), true)
+	eq(child.lua_get(string.format("require('bib.lsp').backend(%d).get('beta')", buf_a)), vim.NIL)
 end
 
 T["lsp_handlers"]["code action returns pdf and note for zotero citation"] = function()

@@ -23,6 +23,12 @@ T["zotero_backend"]["get by key"] = function()
 	eq(child.lua_get("require('bib.backends.zotero').get('ABC123#smith2020').fields.author"), "John Smith")
 end
 
+T["zotero_backend"]["excludes items in the trash"] = function()
+	u.zotero.setup(child)
+	eq(child.lua_get("#require('bib.backends.zotero').search('Trashed')"), 0)
+	eq(child.lua_get("#require('bib.backends.zotero').match('tras')"), 0)
+end
+
 T["zotero_backend"]["definition returns zotero URI"] = function()
 	u.zotero.setup(child)
 	eq(child.lua_get("require('bib.backends.zotero').definition('ABC123#smith2020').uri"), "zotero://select/library/items/ABC123")

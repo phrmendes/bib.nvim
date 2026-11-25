@@ -25,6 +25,16 @@ local function extract_curly_arg(node, bufnr)
 	end)
 end
 
+--- Load file contents into a private scratch buffer, so no user buffer changes.
+---@param path string
+---@return integer
+local function load_scratch(path)
+	local lines = vim.fn.filereadable(path) == 1 and vim.fn.readfile(path) or {}
+	local buf = vim.api.nvim_create_buf(false, true)
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+	return buf
+end
+
 ---@type table
 local backends = {}
 
@@ -42,8 +52,7 @@ local extractors = {
 		local rootpath = backends.resolve_path(dir, root_file)
 		if not rootpath then return end
 		if vim.fn.filereadable(rootpath) ~= 1 then return end
-		local rootbuf = vim.fn.bufadd(rootpath)
-		vim.fn.bufload(rootbuf)
+		local rootbuf = load_scratch(rootpath)
 		local result = backends.find_tex_bib(vim.fn.fnamemodify(rootpath, ":p:h"), rootbuf)
 		vim.api.nvim_buf_delete(rootbuf, { force = true })
 		return result
@@ -122,16 +131,54 @@ function backends.collect_strings(buf, root)
 	end)
 end
 
+--- Split a BibTeX value on top-level `#` only. Braces and quotes nest, so
+--- `{C# in Depth}` stays whole while `"a" # "b"` splits in two.
+---@param value string
+---@return string[]
+local function split_concat(value)
+	local parts, depth, quote, start, i = {}, 0, nil, 1, 1
+
+	while i <= #value do
+		local ch = value:sub(i, i)
+
+		if quote then
+			if ch == "\\" then
+				i = i + 1
+			elseif ch == quote then
+				quote = nil
+			end
+		elseif ch == '"' then
+			quote = ch
+		elseif ch == "{" then
+			depth = depth + 1
+		elseif ch == "}" then
+			depth = depth - 1
+		elseif ch == "#" and depth == 0 then
+			table.insert(parts, value:sub(start, i - 1))
+			start = i + 1
+		end
+
+		i = i + 1
+	end
+
+	table.insert(parts, value:sub(start))
+	return parts
+end
+
 --- Resolve @string references in a value
 ---@param value string
 ---@param strings table<string, string>
 ---@return string
 function backends.resolve(value, strings)
-	value = strip_value(value)
-	local resolved = strings[value]
+	local whole = strip_value(value)
+	local resolved = strings[whole]
 	if resolved then return resolved end
-	return vim.iter(vim.split(value, patterns.concat_sep)):fold("", function(acc, part)
-		if not part then return acc end
+
+	local parts = split_concat(value)
+
+	if #parts == 1 then return whole end
+
+	return vim.iter(parts):fold("", function(acc, part)
 		local s = strip_value(part)
 		return acc .. (strings[s] or s)
 	end)
@@ -177,8 +224,7 @@ end
 ---@param path string
 ---@return table<string, BibEntry>|nil
 function backends.parse(path)
-	local buf = vim.fn.bufadd(path)
-	vim.fn.bufload(buf)
+	local buf = load_scratch(path)
 
 	local parser = vim.treesitter.get_parser(buf, "bibtex")
 	if not parser then

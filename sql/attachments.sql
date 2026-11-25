@@ -5,4 +5,7 @@ SELECT itemAttachments.path, itemAttachments.contentType, attachKeys.key AS atta
 FROM itemAttachments
 JOIN items ON itemAttachments.parentItemID = items.itemID
 JOIN items AS attachKeys ON itemAttachments.itemID = attachKeys.itemID
-WHERE items.key = :key AND itemAttachments.contentType = 'application/pdf'
+WHERE items.key = :key
+  AND itemAttachments.contentType = 'application/pdf'
+  AND items.itemID NOT IN (SELECT itemID FROM deletedItems)
+  AND itemAttachments.itemID NOT IN (SELECT itemID FROM deletedItems)

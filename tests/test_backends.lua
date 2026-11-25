@@ -50,6 +50,31 @@ vim
 		end
 	end)
 
+T["parse"] = test.new_set()
+
+T["parse"]["keeps an open .bib buffer valid"] = function()
+	local dir = u.temp_dir()
+	local bib_path = vim.fs.joinpath(dir, "refs.bib")
+	u.write_file(child, bib_path, entry)
+	child.lua(string.format("vim.cmd.edit(%q)", bib_path))
+	local bufnr = child.lua_get("vim.api.nvim_get_current_buf()")
+	child.lua("vim.cmd('enew')")
+
+	child.lua(string.format("require('bib.utils.backends').parse(%q)", bib_path))
+
+	eq(child.lua_get(string.format("vim.api.nvim_buf_is_valid(%d)", bufnr)), true)
+end
+
+T["parse"]["keeps hash characters inside values"] = function()
+	local dir = u.temp_dir()
+	u.write_file(child, vim.fs.joinpath(dir, "hash.bib"), "@book{knuth, title = {C# in Depth}, publisher = {A#B}}")
+
+	local entries = child.lua(string.format("return require('bib.utils.backends').parse(%q)", vim.fs.joinpath(dir, "hash.bib")))
+
+	eq(entries.knuth.fields.title, "C# in Depth")
+	eq(entries.knuth.fields.publisher, "A#B")
+end
+
 T["definition"] = test.new_set()
 
 T["definition"]["returns location with uri"] = function()

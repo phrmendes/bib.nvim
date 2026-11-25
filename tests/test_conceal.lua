@@ -122,6 +122,16 @@ T["conceal"]["skips code fences"] = function()
 	eq(#extmarks, 0)
 end
 
+T["conceal"]["skips inline code spans"] = function()
+	local extmarks = setup_conceal("text `@ABC123#smith2020` inline")
+	eq(#extmarks, 0)
+end
+
+T["conceal"]["skips email addresses"] = function()
+	local extmarks = setup_conceal("write to user@example.com today")
+	eq(#extmarks, 0)
+end
+
 T["conceal"]["plain @citekey gets prefix and key marks"] = function()
 	local extmarks = setup_conceal("see @smith2020 for details")
 

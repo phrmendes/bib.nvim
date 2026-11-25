@@ -1,5 +1,4 @@
 ---@class BibPatterns
----@field concat_sep string Concatenation separator in @string values (#)
 ---@field whitespace string Collapse whitespace (abstract normalization)
 ---@field key_left string Extract citation key chars before cursor (anchored at last @)
 ---@field key_right string Extract citation key chars at and after cursor
@@ -13,7 +12,6 @@
 ---@field conceal_scan string Match @citekey or @ITEMID#citekey for conceal marks
 ---@field storage_prefix string Detect storage: prefix in Zotero attachment paths
 return {
-	concat_sep = "%s*#%s*",
 	whitespace = "%s+",
 	key_left = ".*@([%w%-#]*)$",
 	key_right = "^([%w%-#]*)",

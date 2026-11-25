@@ -39,8 +39,21 @@ function bib.setup(opts)
 
 	vim.api.nvim_create_user_command("Bib", function(args)
 		local parts = vim.split(args.args, " ", { trimempty = true })
-		if #parts == 0 then return end
-		require("bib.commands").search(parts[2])
+		local sub = parts[1]
+
+		if sub ~= "search" then
+			vim.notify("Bib: unknown subcommand: " .. (sub or ""), vim.log.levels.ERROR)
+			return
+		end
+
+		local scope = parts[2]
+
+		if scope and scope ~= "zotero" then
+			vim.notify("Bib: unknown search scope: " .. scope, vim.log.levels.ERROR)
+			return
+		end
+
+		require("bib.commands").search(scope)
 	end, {
 		nargs = "*",
 		complete = function(arglead, cmdline)
