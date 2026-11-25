@@ -1,7 +1,6 @@
-# Changelog
-
 ## v1.0.0 (2026-11-25)
 ### Features
+- prepare v1.0.0 release ([3e57e40](https://github.com/phrmendes/bib.nvim/commit/3e57e40902af8afa5e53eb47cdf8fc4ed0ec4f91))
 - auto-generated docs, code fence conceal skip, Apache 2.0 license ([376621b](https://github.com/phrmendes/bib.nvim/commit/376621b4b48227fe266cd8c7eb0fb809afed590a))
 - code actions for PDF and notes, test coverage ([59b9477](https://github.com/phrmendes/bib.nvim/commit/59b9477ce7bb61f3c42a28da03a5182888ec7fb1))
 - polish picker, conceal, completion, roadmap ([c04d971](https://github.com/phrmendes/bib.nvim/commit/c04d971cc6d67c5d667f294b0d52fea12fc91a30))
