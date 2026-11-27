@@ -100,6 +100,8 @@ Zotero citations can offer these code actions:
 Zotero completion uses a composite key such as `@ABC123#smith2020`.
 Conceal hides the item key in Markdown, so the citation displays as
 `@smith2020`. The full key remains in the file.
+Neovim does not spell-check citation keys highlighted by bib.nvim.
+Language servers can still report diagnostics for them.
 
 Troubleshooting ~
 *bib-troubleshooting*

@@ -45,9 +45,9 @@ function conceal.collect_marks(line)
     if hash then
       marks[#marks + 1] = { col = at_col + 1, opts = { end_col = at_col + hash + 1, conceal = "", hl_group = "BibCitePrefix" } }
       local citekey = key:sub(hash + 1)
-      if citekey ~= "" then marks[#marks + 1] = { col = at_col + hash + 1, opts = { end_col = at_col + hash + 1 + #citekey, hl_group = "BibCiteKey" } } end
+      if citekey ~= "" then marks[#marks + 1] = { col = at_col + hash + 1, opts = { end_col = at_col + hash + 1 + #citekey, hl_group = "BibCiteKey", spell = false } } end
     else
-      marks[#marks + 1] = { col = at_col + 1, opts = { end_col = at_col + 1 + #key, hl_group = "BibCiteKey" } }
+      marks[#marks + 1] = { col = at_col + 1, opts = { end_col = at_col + 1 + #key, hl_group = "BibCiteKey", spell = false } }
     end
 
     return marks

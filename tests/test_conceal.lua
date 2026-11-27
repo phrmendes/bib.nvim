@@ -23,6 +23,32 @@ local function setup_conceal(content)
   ]])
 end
 
+--- Compare rendered characters with spelling enabled and disabled.
+---@param columns integer[] One-indexed byte columns.
+---@return {enabled: table[], disabled: table[]} attributes Screen characters and attributes.
+local function spell_attributes(columns)
+  return child.lua(
+    [[
+    local columns = ...
+    local function snapshot()
+      vim.cmd('redraw!')
+      return vim.iter(columns):map(function(col)
+        local position = vim.fn.screenpos(0, 1, col)
+        assert(position.row > 0 and position.col > 0, 'text is not visible')
+        return { char = vim.fn.screenstring(position.row, position.col), attr = vim.fn.screenattr(position.row, position.col) }
+      end):totable()
+    end
+    vim.wo.spell = true
+    local enabled = snapshot()
+    vim.wo.spell = false
+    local disabled = snapshot()
+    vim.wo.spell = true
+    return { enabled = enabled, disabled = disabled }
+  ]],
+    { columns }
+  )
+end
+
 --- Return a mark start column.
 ---@param marks table[]
 ---@param i integer
@@ -209,6 +235,37 @@ T["conceal"]["plain @citekey gets prefix and key marks"] = function()
   eq(col(extmarks, 2), 5)
   eq(end_col(extmarks, 2), 14)
   eq(hl(extmarks, 2), "BibCiteKey")
+end
+
+T["conceal"]["skips spelling on citation keys but checks prose"] = function()
+  local line = "zzzxqv @zzzxqv @ABC123#zzzxqv"
+  setup_conceal(line)
+  child.lua("vim.wo.conceallevel = 0; vim.bo.spelllang = 'en_us'")
+  local prose = assert(line:find("zzzxqv", 1, true))
+  local plain = assert(line:find("@zzzxqv", 1, true)) + 1
+  local zotero = assert(line:find("#zzzxqv", 1, true)) + 1
+  local attributes = spell_attributes({ prose, plain, zotero })
+
+  vim.iter(attributes.enabled):each(function(cell) eq(cell.char, "z") end)
+  eq(attributes.enabled[1].attr ~= attributes.disabled[1].attr, true)
+  eq(attributes.enabled[2].attr, attributes.disabled[2].attr)
+  eq(attributes.enabled[3].attr, attributes.disabled[3].attr)
+end
+
+T["conceal"]["restores spelling after a citation becomes prose"] = function()
+  setup_conceal("@zzzxqv")
+  child.lua("vim.wo.conceallevel = 0; vim.bo.spelllang = 'en_us'")
+  local citation = spell_attributes({ 2 })
+  eq(citation.enabled[1].attr, citation.disabled[1].attr)
+
+  child.type_keys("gg0", "x")
+  child.lua([[
+    local ns = vim.api.nvim_get_namespaces().bib_conceal
+    assert(vim.wait(3000, function() return #vim.api.nvim_buf_get_extmarks(0, ns, 0, -1, {}) == 0 end))
+  ]])
+  local prose = spell_attributes({ 1 })
+  eq(prose.enabled[1].char, "z")
+  eq(prose.enabled[1].attr ~= prose.disabled[1].attr, true)
 end
 
 T["conceal"]["ignores unconfigured filetypes"] = function()
