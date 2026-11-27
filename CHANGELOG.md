@@ -1,3 +1,11 @@
+## v1.1.0 (2026-11-27)
+### Features
+- add bibliography health checks ([ed1c1fc](https://github.com/phrmendes/bib.nvim/commit/ed1c1fc6784a68db7c16979e6e10b2650ec41e4b))
+### Fixes
+- preserve bibliography and Zotero state ([b6e7143](https://github.com/phrmendes/bib.nvim/commit/b6e71433735270fd6beee68aa5f8c3a457fd6466))
+- resolve citations in Markdown and LaTeX ([24e0cf0](https://github.com/phrmendes/bib.nvim/commit/24e0cf016783a817ffb24f08da07502dff232c5a))
+- avoid concealing citations in code ([50a41e0](https://github.com/phrmendes/bib.nvim/commit/50a41e0ad0392eae030d4a408381eb1f2398831d))
+
 ## v1.0.0 (2026-11-25)
 ### Features
 - prepare v1.0.0 release ([3e57e40](https://github.com/phrmendes/bib.nvim/commit/3e57e40902af8afa5e53eb47cdf8fc4ed0ec4f91))
