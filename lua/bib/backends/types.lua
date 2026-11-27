@@ -13,10 +13,11 @@
 ---@field creators table<string, string> Creator type -> comma-separated names
 
 ---@class Backend
----@field load fun(bufnr: integer)
----@field match fun(prefix: string): BibEntry[] | ZoteroEntry[]
----@field get fun(key: string): BibEntry | ZoteroEntry | nil
----@field definition fun(key: string): {uri: string, range: table} | nil
----@field hover fun(key: string): string | nil
----@field search fun(query: string): BibEntry[] | ZoteroEntry[]
----@field all fun(): BibEntry[] | ZoteroEntry[]
+---@field path? string
+---@field load fun(self: Backend, bufnr: integer): string|nil
+---@field match fun(self: Backend, prefix: string): BibEntry[] | ZoteroEntry[]
+---@field get fun(self: Backend, key: string): BibEntry | ZoteroEntry | nil
+---@field definition fun(self: Backend, key: string): {uri: string, range: table?} | nil
+---@field hover fun(self: Backend, key: string): string | nil
+---@field search fun(self: Backend, query: string): BibEntry[] | ZoteroEntry[]
+---@field all fun(self: Backend): BibEntry[] | ZoteroEntry[]
