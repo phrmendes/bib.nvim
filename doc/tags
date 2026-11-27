@@ -1,3 +1,11 @@
+:Bib	bib.txt	/*:Bib*
+bib	bib.txt	/*bib*
+bib-actions	bib.txt	/*bib-actions*
+bib-bibliography	bib.txt	/*bib-bibliography*
+bib-commands	bib.txt	/*bib-commands*
+bib-requirements	bib.txt	/*bib-requirements*
+bib-setup	bib.txt	/*bib-setup*
+bib-troubleshooting	bib.txt	/*bib-troubleshooting*
 bib.get()	bib.txt	/*bib.get()*
+bib.nvim	bib.txt	/*bib.nvim*
 bib.setup()	bib.txt	/*bib.setup()*
-defaults	bib.txt	/*defaults*
