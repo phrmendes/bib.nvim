@@ -1,3 +1,7 @@
+## v1.1.1 (2026-11-27)
+### Fixes
+- skip spell checking on citation keys ([0899db5](https://github.com/phrmendes/bib.nvim/commit/0899db5e55356302dfd9e59209dba75ad7eff64a))
+
 ## v1.1.0 (2026-11-27)
 ### Features
 - add bibliography health checks ([ed1c1fc](https://github.com/phrmendes/bib.nvim/commit/ed1c1fc6784a68db7c16979e6e10b2650ec41e4b))
