@@ -36,20 +36,20 @@ vim
       u.write_file(child, md, c.content and "---\nbibliography: refs.bib\n---\nSee @smith2020." or "# No bib")
       local has = child.lua(string.format(
         [[
-        vim.cmd.edit(%q)
-        local attached = false
-        vim.api.nvim_create_autocmd('LspAttach', { callback = function(args)
-          local client = vim.lsp.get_client_by_id(args.data.client_id)
-          if client and client.name == 'bib_ls' then attached = true end
-        end })
-        require('bib').setup({ zotero = { database = %q } })
-        assert(vim.wait(3000, function() return attached end))
-        local expected = %s
-        assert(vim.wait(3000, function()
-          return (#vim.lsp.get_clients({ bufnr = 0, name = 'bib_ls' }) > 0) == expected
-        end))
-        return #vim.lsp.get_clients({ bufnr = 0, name = 'bib_ls' }) > 0
-      ]],
+          vim.cmd.edit(%q)
+          local attached = false
+          vim.api.nvim_create_autocmd("LspAttach", {
+            callback = function(args)
+              local client = vim.lsp.get_client_by_id(args.data.client_id)
+              if client and client.name == "bib_ls" then attached = true end
+            end,
+          })
+          require("bib").setup({ zotero = { database = %q } })
+          assert(vim.wait(3000, function() return attached end))
+          local expected = %s
+          assert(vim.wait(3000, function() return (#vim.lsp.get_clients({ bufnr = 0, name = "bib_ls" }) > 0) == expected end))
+          return #vim.lsp.get_clients({ bufnr = 0, name = "bib_ls" }) > 0
+        ]],
         md,
         vim.fs.joinpath(dir, "missing.sqlite"),
         tostring(c.expected)
@@ -106,7 +106,7 @@ T["lsp_handlers"]["initialize advertises utf-8 position encoding"] = function()
   local encoding = child.lua([[
     local client
     assert(vim.wait(3000, function()
-      client = vim.lsp.get_clients({ bufnr = 0, name = 'bib_ls' })[1]
+      client = vim.lsp.get_clients({ bufnr = 0, name = "bib_ls" })[1]
       return client and client.initialized
     end))
     return client.offset_encoding
@@ -209,34 +209,39 @@ T["lsp_handlers"]["resolves completion from its source buffer"] = function()
 
   local result = child.lua(string.format(
     [[
-    require('bib').setup({ zotero = { database = %q } })
-    local function open(path)
-      vim.cmd.edit(path)
-      local bufnr = vim.api.nvim_get_current_buf()
-      local client
-      assert(vim.wait(3000, function()
-        client = vim.lsp.get_clients({ bufnr = bufnr, name = 'bib_ls' })[1]
-        return client and client.initialized
-      end))
-      return bufnr, client
-    end
-    local function request(client, bufnr, method, params)
-      local result
-      assert(client:request(method, params, function(err, value) assert(not err, err and err.message); result = value end, bufnr))
-      assert(vim.wait(3000, function() return result ~= nil end))
-      return result
-    end
-    local a, client_a = open(%q)
-    local first = request(client_a, a, 'textDocument/completion', {
-      textDocument = { uri = vim.uri_from_bufnr(a) }, position = { line = 4, character = 6 },
-    })
-    local b, client_b = open(%q)
-    local second = request(client_b, b, 'textDocument/completion', {
-      textDocument = { uri = vim.uri_from_bufnr(b) }, position = { line = 4, character = 6 },
-    })
-    local resolved = request(client_b, b, 'completionItem/resolve', first.items[1])
-    return { first = first, second = second, resolved = resolved }
-	]],
+      require("bib").setup({ zotero = { database = %q } })
+      local function open(path)
+        vim.cmd.edit(path)
+        local bufnr = vim.api.nvim_get_current_buf()
+        local client
+        assert(vim.wait(3000, function()
+          client = vim.lsp.get_clients({ bufnr = bufnr, name = "bib_ls" })[1]
+          return client and client.initialized
+        end))
+        return bufnr, client
+      end
+      local function request(client, bufnr, method, params)
+        local result
+        assert(client:request(method, params, function(err, value)
+          assert(not err, err and err.message)
+          result = value
+        end, bufnr))
+        assert(vim.wait(3000, function() return result ~= nil end))
+        return result
+      end
+      local a, client_a = open(%q)
+      local first = request(client_a, a, "textDocument/completion", {
+        textDocument = { uri = vim.uri_from_bufnr(a) },
+        position = { line = 4, character = 6 },
+      })
+      local b, client_b = open(%q)
+      local second = request(client_b, b, "textDocument/completion", {
+        textDocument = { uri = vim.uri_from_bufnr(b) },
+        position = { line = 4, character = 6 },
+      })
+      local resolved = request(client_b, b, "completionItem/resolve", first.items[1])
+      return { first = first, second = second, resolved = resolved }
+    ]],
     vim.fs.joinpath(dir_a, "missing.sqlite"),
     md_a,
     md_b
@@ -266,28 +271,30 @@ vim
       eq(u.lsp_request(child, "textDocument/hover", position).err, vim.NIL)
       child.lua(string.format(
         [[
-      local failure = %q
-      local sqlite = require('sqlite')
-      local original = package.loaded.sqlite
-      package.loaded.sqlite = { new = function(...)
-        local db = sqlite.new(...)
-        local open, eval, close = db.open, db.eval, db.close
-        if failure == 'open' or failure == 'open_close' then
-          db.open = function(self, ...) open(self, ...); error('injected open failure') end
-        end
-        if failure == 'query' or failure == 'query_close' then
-          db.eval = function() error('injected query failure') end
-        end
-        if failure == 'close' or failure == 'open_close' or failure == 'query_close' then
-          db.close = function(self, ...) close(self, ...); error('injected close failure') end
-        end
-        return db
-      end }
-      _G.restore_sqlite = function() package.loaded.sqlite = original end
-      _G.messages, _G.warnings = {}, {}
-      vim.notify = function(message) table.insert(_G.messages, message) end
-      vim.lsp.log.warn = function(message) table.insert(_G.warnings, message) end
-    ]],
+          local failure = %q
+          local sqlite = require("sqlite")
+          local original = package.loaded.sqlite
+          package.loaded.sqlite = {
+            new = function(...)
+              local db = sqlite.new(...)
+              local open, eval, close = db.open, db.eval, db.close
+              if failure == "open" or failure == "open_close" then db.open = function(self, ...)
+                open(self, ...)
+                error("injected open failure")
+              end end
+              if failure == "query" or failure == "query_close" then db.eval = function() error("injected query failure") end end
+              if failure == "close" or failure == "open_close" or failure == "query_close" then db.close = function(self, ...)
+                close(self, ...)
+                error("injected close failure")
+              end end
+              return db
+            end,
+          }
+          _G.restore_sqlite = function() package.loaded.sqlite = original end
+          _G.messages, _G.warnings = {}, {}
+          vim.notify = function(message) table.insert(_G.messages, message) end
+          vim.lsp.log.warn = function(message) table.insert(_G.warnings, message) end
+        ]],
         case.failure
       ))
       local response = u.lsp_request(child, "textDocument/codeAction", position)
@@ -341,11 +348,11 @@ T["lsp_handlers"]["unknown requests return one empty response"] = function()
   local result = child.lua([[
     local client
     assert(vim.wait(3000, function()
-      client = vim.lsp.get_clients({ bufnr = 0, name = 'bib_ls' })[1]
+      client = vim.lsp.get_clients({ bufnr = 0, name = "bib_ls" })[1]
       return client and client.initialized
     end))
     local calls, response = 0, nil
-    local accepted = client:request('unknown/method', {}, function(err, value)
+    local accepted = client:request("unknown/method", {}, function(err, value)
       calls = calls + 1
       response = { err = err or vim.NIL, value = value or vim.NIL }
     end, 0)
@@ -359,8 +366,8 @@ end
 T["lsp_handlers"]["unknown notifications do not stop the client"] = function()
   setup_handler("---\nbibliography: refs.bib\n---\n\nSee @smi")
   child.lua([[
-    assert(vim.wait(3000, function() return #vim.lsp.get_clients({ bufnr = 0, name = 'bib_ls' }) > 0 end))
-    vim.lsp.get_clients({ bufnr = 0, name = 'bib_ls' })[1]:notify('unknown/method', {})
+    assert(vim.wait(3000, function() return #vim.lsp.get_clients({ bufnr = 0, name = "bib_ls" }) > 0 end))
+    vim.lsp.get_clients({ bufnr = 0, name = "bib_ls" })[1]:notify("unknown/method", {})
   ]])
   local response = u.lsp_request(child, "textDocument/completion", { line = 4, character = 7 })
   eq(response.result.items[1].textEdit.newText, "smith2020")
@@ -387,23 +394,24 @@ T["lsp_handlers"]["Zotero note conversion does not block code actions"] = functi
   local result = child.lua([[
     local client
     assert(vim.wait(3000, function()
-      client = vim.lsp.get_clients({ bufnr = 0, name = 'bib_ls' })[1]
+      client = vim.lsp.get_clients({ bufnr = 0, name = "bib_ls" })[1]
       return client and client.initialized
     end))
     local finish, response
     local original = vim.system
     vim.system = function(_, _, callback)
       finish = callback
-      return { wait = function() error('conversion blocked') end }
+      return { wait = function() error("conversion blocked") end }
     end
     local position = { line = 2, character = 13 }
-    local ok = client:request('textDocument/codeAction', {
+    local ok = client:request("textDocument/codeAction", {
       textDocument = { uri = vim.uri_from_bufnr(0) },
-      range = { start = position, ['end'] = position }, context = { diagnostics = {} },
+      range = { start = position, ["end"] = position },
+      context = { diagnostics = {} },
     }, function(err, actions) response = { err = err, actions = actions } end, 0)
     assert(vim.wait(3000, function() return finish ~= nil end))
     local pending = response == nil
-    finish({ code = 0, stdout = 'Converted note' })
+    finish({ code = 0, stdout = "Converted note" })
     assert(vim.wait(3000, function() return response ~= nil end))
     vim.system = original
     local action = response.actions and response.actions[2]
@@ -420,15 +428,15 @@ T["lsp_handlers"]["uses the original note when pandoc is unavailable"] = functio
   u.write_file(child, md, "# Hello\n\nSee @ABC123#smith2020.")
   child.lua(string.format(
     [[
-    local db = require('sqlite').new(%q)
-    db:open()
-    db:eval("UPDATE itemNotes SET note = '<p>Original note</p>' WHERE itemID = 1")
-    db:close()
-    vim.cmd.edit(%q)
-    require('bib').setup({ zotero = { database = %q } })
-    _G.original_path = vim.env.PATH
-    vim.env.PATH = %q
-  ]],
+      local db = require("sqlite").new(%q)
+      db:open()
+      db:eval("UPDATE itemNotes SET note = '<p>Original note</p>' WHERE itemID = 1")
+      db:close()
+      vim.cmd.edit(%q)
+      require("bib").setup({ zotero = { database = %q } })
+      _G.original_path = vim.env.PATH
+      vim.env.PATH = %q
+    ]],
     db_path,
     md,
     db_path,
@@ -448,38 +456,41 @@ T["lsp_handlers"]["note conversion preserves order and falls back after timeout"
   u.write_file(child, md, "# Hello\n\nSee @ABC123#smith2020.")
   local result = child.lua(string.format(
     [[
-    local db = require('sqlite').new(%q)
-    db:open()
-    db:eval("UPDATE itemNotes SET note = 'first html' WHERE itemID = 1")
-    db:eval("INSERT INTO itemNotes VALUES (3, 1, 'second html', 'Note 2')")
-    db:close()
-    vim.cmd.edit(%q)
-    require('bib').setup({ zotero = { database = %q } })
-    local client
-    assert(vim.wait(3000, function()
-      client = vim.lsp.get_clients({ bufnr = 0, name = 'bib_ls' })[1]
-      return client and client.initialized
-    end))
-    local jobs, response = {}, nil
-    local original = vim.system
-    vim.system = function(_, opts, callback)
-      table.insert(jobs, { stdin = opts.stdin, timeout = opts.timeout, finish = callback })
-      return {}
-    end
-    local position = { line = 2, character = 13 }
-    assert(client:request('textDocument/codeAction', {
-      textDocument = { uri = vim.uri_from_bufnr(0) }, range = { start = position, ['end'] = position },
-      context = { diagnostics = {} },
-    }, function(err, actions) assert(not err, err and err.message); response = actions end, 0))
-    assert(vim.wait(3000, function() return #jobs == 1 end))
-    jobs[1].finish({ code = 0, stdout = 'first converted' })
-    assert(vim.wait(3000, function() return #jobs == 2 end))
-    jobs[2].finish({ code = 124 })
-    assert(vim.wait(3000, function() return response ~= nil end))
-    vim.system = original
-    return { first = jobs[1].stdin, second = jobs[2].stdin, timeout = jobs[2].timeout,
-      text = response[2].edit.changes[vim.uri_from_bufnr(0)][1].newText }
-  ]],
+      local db = require("sqlite").new(%q)
+      db:open()
+      db:eval("UPDATE itemNotes SET note = 'first html' WHERE itemID = 1")
+      db:eval("INSERT INTO itemNotes VALUES (3, 1, 'second html', 'Note 2')")
+      db:close()
+      vim.cmd.edit(%q)
+      require("bib").setup({ zotero = { database = %q } })
+      local client
+      assert(vim.wait(3000, function()
+        client = vim.lsp.get_clients({ bufnr = 0, name = "bib_ls" })[1]
+        return client and client.initialized
+      end))
+      local jobs, response = {}, nil
+      local original = vim.system
+      vim.system = function(_, opts, callback)
+        table.insert(jobs, { stdin = opts.stdin, timeout = opts.timeout, finish = callback })
+        return {}
+      end
+      local position = { line = 2, character = 13 }
+      assert(client:request("textDocument/codeAction", {
+        textDocument = { uri = vim.uri_from_bufnr(0) },
+        range = { start = position, ["end"] = position },
+        context = { diagnostics = {} },
+      }, function(err, actions)
+        assert(not err, err and err.message)
+        response = actions
+      end, 0))
+      assert(vim.wait(3000, function() return #jobs == 1 end))
+      jobs[1].finish({ code = 0, stdout = "first converted" })
+      assert(vim.wait(3000, function() return #jobs == 2 end))
+      jobs[2].finish({ code = 124 })
+      assert(vim.wait(3000, function() return response ~= nil end))
+      vim.system = original
+      return { first = jobs[1].stdin, second = jobs[2].stdin, timeout = jobs[2].timeout, text = response[2].edit.changes[vim.uri_from_bufnr(0)][1].newText }
+    ]],
     db_path,
     md,
     db_path
@@ -496,29 +507,32 @@ T["lsp_start"]["a buffer without a backend does not stop a shared client"] = fun
   u.write_file(child, second, "# No bibliography")
   local result = child.lua(string.format(
     [[
-    local second = %q
-    local second_attached = false
-    vim.api.nvim_create_autocmd('LspAttach', { callback = function(args)
-      if vim.api.nvim_buf_get_name(args.buf) == second then second_attached = true end
-    end })
-    require('bib').setup({ zotero = { database = %q } })
-    vim.cmd.edit(%q)
-    local first = vim.api.nvim_get_current_buf()
-    assert(vim.wait(3000, function() return #vim.lsp.get_clients({ bufnr = first, name = 'bib_ls' }) > 0 end))
-    local client = vim.lsp.get_clients({ bufnr = first, name = 'bib_ls' })[1]
-    vim.cmd.edit(second)
-    assert(vim.wait(3000, function() return second_attached end))
-    vim.wait(100)
-    local alive = not client:is_stopped() and vim.lsp.buf_is_attached(first, client.id)
-    local completion
-    if alive then
-      client:request('textDocument/completion', {
-        textDocument = { uri = vim.uri_from_bufnr(first) }, position = { line = 4, character = 7 },
-      }, function(_, value) completion = value end, first)
-      vim.wait(3000, function() return completion ~= nil end)
-    end
-    return { alive = alive, count = completion and #completion.items or 0 }
-  ]],
+      local second = %q
+      local second_attached = false
+      vim.api.nvim_create_autocmd("LspAttach", {
+        callback = function(args)
+          if vim.api.nvim_buf_get_name(args.buf) == second then second_attached = true end
+        end,
+      })
+      require("bib").setup({ zotero = { database = %q } })
+      vim.cmd.edit(%q)
+      local first = vim.api.nvim_get_current_buf()
+      assert(vim.wait(3000, function() return #vim.lsp.get_clients({ bufnr = first, name = "bib_ls" }) > 0 end))
+      local client = vim.lsp.get_clients({ bufnr = first, name = "bib_ls" })[1]
+      vim.cmd.edit(second)
+      assert(vim.wait(3000, function() return second_attached end))
+      vim.wait(100)
+      local alive = not client:is_stopped() and vim.lsp.buf_is_attached(first, client.id)
+      local completion
+      if alive then
+        client:request("textDocument/completion", {
+          textDocument = { uri = vim.uri_from_bufnr(first) },
+          position = { line = 4, character = 7 },
+        }, function(_, value) completion = value end, first)
+        vim.wait(3000, function() return completion ~= nil end)
+      end
+      return { alive = alive, count = completion and #completion.items or 0 }
+    ]],
     second,
     vim.fs.joinpath(dir, "missing.sqlite"),
     first
@@ -541,38 +555,39 @@ T["lsp_handlers"]["saving a bibliography refreshes only its dependent buffers"] 
   local db = u.setup_zotero_db(child, zotero)
   local result = child.lua(string.format(
     [[
-    require('bib').setup({ zotero = { database = %q } })
-    local function open(path)
-      vim.cmd.edit(path)
-      local buf, client = vim.api.nvim_get_current_buf(), nil
-      assert(vim.wait(3000, function()
-        client = vim.lsp.get_clients({ bufnr = buf, name = 'bib_ls' })[1]
-        return client and client.initialized
-      end))
-      return { buf = buf, client = client }
-    end
-    local function request(doc, method, position)
-      local response = assert(doc.client:request_sync(method, {
-        textDocument = { uri = vim.uri_from_bufnr(doc.buf) }, position = position,
-      }, 3000, doc.buf))
-      assert(not response.err, response.err and response.err.message)
-      return response.result
-    end
-    local first, second, other, zotero = open(%q), open(%q), open(%q), open(%q)
-    local db = require('sqlite').new(%q)
-    db:open()
-    db:eval("UPDATE itemDataValues SET value = 'Changed' WHERE valueID = 1")
-    db:close()
-    vim.cmd.edit(%q)
-    vim.api.nvim_buf_set_lines(0, -1, -1, false, { '@book{added, title = {Added}}' })
-    vim.cmd.write()
-    return {
-      first = request(first, 'textDocument/definition', { line = 4, character = 8 }).uri,
-      second = request(second, 'textDocument/definition', { line = 4, character = 8 }).uri,
-      other = request(other, 'textDocument/definition', { line = 4, character = 8 }).uri,
-      zotero = request(zotero, 'textDocument/hover', { line = 2, character = 13 }).contents.value,
-    }
-  ]],
+      require("bib").setup({ zotero = { database = %q } })
+      local function open(path)
+        vim.cmd.edit(path)
+        local buf, client = vim.api.nvim_get_current_buf(), nil
+        assert(vim.wait(3000, function()
+          client = vim.lsp.get_clients({ bufnr = buf, name = "bib_ls" })[1]
+          return client and client.initialized
+        end))
+        return { buf = buf, client = client }
+      end
+      local function request(doc, method, position)
+        local response = assert(doc.client:request_sync(method, {
+          textDocument = { uri = vim.uri_from_bufnr(doc.buf) },
+          position = position,
+        }, 3000, doc.buf))
+        assert(not response.err, response.err and response.err.message)
+        return response.result
+      end
+      local first, second, other, zotero = open(%q), open(%q), open(%q), open(%q)
+      local db = require("sqlite").new(%q)
+      db:open()
+      db:eval("UPDATE itemDataValues SET value = 'Changed' WHERE valueID = 1")
+      db:close()
+      vim.cmd.edit(%q)
+      vim.api.nvim_buf_set_lines(0, -1, -1, false, { "@book{added, title = {Added}}" })
+      vim.cmd.write()
+      return {
+        first = request(first, "textDocument/definition", { line = 4, character = 8 }).uri,
+        second = request(second, "textDocument/definition", { line = 4, character = 8 }).uri,
+        other = request(other, "textDocument/definition", { line = 4, character = 8 }).uri,
+        zotero = request(zotero, "textDocument/hover", { line = 2, character = 13 }).contents.value,
+      }
+    ]],
     db,
     first,
     second,
@@ -594,27 +609,28 @@ T["lsp_handlers"]["reports returned and thrown PDF open errors"] = function()
   u.write_file(child, pdf, "%PDF-1.4\n%%EOF")
   local result = child.lua(string.format(
     [[
-    local client
-    assert(vim.wait(3000, function()
-      client = vim.lsp.get_clients({ bufnr = 0, name = 'bib_ls' })[1]
-      return client and client.initialized
-    end))
-    local messages, responses = {}, {}
-    vim.notify = function(message) table.insert(messages, message) end
-    local function run()
-      local response = assert(client:request_sync('workspace/executeCommand', {
-        command = 'bib.open_pdf', arguments = { %q },
-      }, 3000, 0))
-      table.insert(responses, response.err and response.err.message or vim.NIL)
-    end
-    vim.ui.open = function() return nil, 'no handler' end
-    run()
-    vim.ui.open = function() error('spawn failed') end
-    run()
-    vim.ui.open = function() return {} end
-    run()
-    return { messages = messages, responses = responses }
-  ]],
+      local client
+      assert(vim.wait(3000, function()
+        client = vim.lsp.get_clients({ bufnr = 0, name = "bib_ls" })[1]
+        return client and client.initialized
+      end))
+      local messages, responses = {}, {}
+      vim.notify = function(message) table.insert(messages, message) end
+      local function run()
+        local response = assert(client:request_sync("workspace/executeCommand", {
+          command = "bib.open_pdf",
+          arguments = { %q },
+        }, 3000, 0))
+        table.insert(responses, response.err and response.err.message or vim.NIL)
+      end
+      vim.ui.open = function() return nil, "no handler" end
+      run()
+      vim.ui.open = function() error("spawn failed") end
+      run()
+      vim.ui.open = function() return {} end
+      run()
+      return { messages = messages, responses = responses }
+    ]],
     pdf
   ))
 
@@ -633,14 +649,18 @@ T["lsp_handlers"]["rejects a non-string PDF path"] = function()
   local result = child.lua([[
     local client
     assert(vim.wait(3000, function()
-      client = vim.lsp.get_clients({ bufnr = 0, name = 'bib_ls' })[1]
+      client = vim.lsp.get_clients({ bufnr = 0, name = "bib_ls" })[1]
       return client and client.initialized
     end))
     local opened, codes = {}, {}
-    vim.ui.open = function(path) table.insert(opened, path); return {} end
+    vim.ui.open = function(path)
+      table.insert(opened, path)
+      return {}
+    end
     vim.iter({ 17, false }):each(function(path)
-      local response = assert(client:request_sync('workspace/executeCommand', {
-        command = 'bib.open_pdf', arguments = { path },
+      local response = assert(client:request_sync("workspace/executeCommand", {
+        command = "bib.open_pdf",
+        arguments = { path },
       }, 3000, 0))
       table.insert(codes, response.err and response.err.code or vim.NIL)
     end)
@@ -657,25 +677,24 @@ T["lsp_start"]["logs the missing bibliography parser when no backend loads"] = f
   u.write_file(child, md, "---\nbibliography: refs.bib\n---\n")
   local result = child.lua(string.format(
     [[
-    local original = vim.treesitter.get_parser
-    vim.treesitter.get_parser = function(buf, lang, ...)
-      if lang == 'bibtex' then error('BibTeX parser unavailable') end
-      return original(buf, lang, ...)
-    end
-    local messages, warnings = {}, {}
-    vim.notify = function(message) table.insert(messages, message) end
-    vim.lsp.log.warn = function(message) table.insert(warnings, message) end
-    require('bib').setup({ zotero = { database = %q } })
-    vim.cmd.edit(%q)
-    vim.cmd('Bib')
-    assert(vim.wait(3000, function() return vim.list_contains(messages, 'No entries found') end))
-    vim.treesitter.get_parser = original
-    return { shown = vim.list_contains(messages, 'No entries found'),
-      logged = vim.iter(warnings):any(function(message)
-        return message:find('[bib] search backend failed:', 1, true) ~= nil
-          and message:find('BibTeX parser unavailable', 1, true) ~= nil
-      end) }
-  ]],
+      local original = vim.treesitter.get_parser
+      vim.treesitter.get_parser = function(buf, lang, ...)
+        if lang == "bibtex" then error("BibTeX parser unavailable") end
+        return original(buf, lang, ...)
+      end
+      local messages, warnings = {}, {}
+      vim.notify = function(message) table.insert(messages, message) end
+      vim.lsp.log.warn = function(message) table.insert(warnings, message) end
+      require("bib").setup({ zotero = { database = %q } })
+      vim.cmd.edit(%q)
+      vim.cmd("Bib")
+      assert(vim.wait(3000, function() return vim.list_contains(messages, "No entries found") end))
+      vim.treesitter.get_parser = original
+      return {
+        shown = vim.list_contains(messages, "No entries found"),
+        logged = vim.iter(warnings):any(function(message) return message:find("[bib] search backend failed:", 1, true) ~= nil and message:find("BibTeX parser unavailable", 1, true) ~= nil end),
+      }
+    ]],
     vim.fs.joinpath(dir, "missing.sqlite"),
     md
   ))
@@ -726,7 +745,7 @@ vim.iter({ "textDocument/hover", "textDocument/completion", "textDocument/defini
     child.lua([[
       _G.original_get_parser = vim.treesitter.get_parser
       vim.treesitter.get_parser = function(buf, lang, ...)
-        if lang == 'markdown' then return nil, 'returned citation parser error' end
+        if lang == "markdown" then return nil, "returned citation parser error" end
         return _G.original_get_parser(buf, lang, ...)
       end
     ]])
@@ -749,7 +768,7 @@ T["lsp_handlers"]["returned parser errors preserve the previous bibliography on 
   local messages = child.lua([[
     local original = vim.treesitter.get_parser
     vim.treesitter.get_parser = function(bufnr, lang, ...)
-      if lang == 'bibtex' then return nil, 'returned reload parser error' end
+      if lang == "bibtex" then return nil, "returned reload parser error" end
       return original(bufnr, lang, ...)
     end
     local messages = {}
@@ -776,10 +795,10 @@ T["lsp_handlers"]["document save preserves the previous bibliography when reload
   local position = { line = 4, character = 8 }
   eq(u.lsp_request(child, "textDocument/definition", position).result.uri, vim.uri_from_fname(first))
   local messages = child.lua([[
-    vim.api.nvim_buf_set_lines(0, 1, 2, false, { 'bibliography: next.bib' })
+    vim.api.nvim_buf_set_lines(0, 1, 2, false, { "bibliography: next.bib" })
     local original = vim.treesitter.get_parser
     vim.treesitter.get_parser = function(bufnr, lang, ...)
-      if lang == 'bibtex' then error('injected reload failure') end
+      if lang == "bibtex" then error("injected reload failure") end
       return original(bufnr, lang, ...)
     end
     local messages = {}
@@ -804,37 +823,38 @@ T["lsp_handlers"]["bibliography save reports one reload error and preserves depe
   u.write_file(child, second, "---\nbibliography: refs.bib\n---\n\nSee @smith2020.")
   local result = child.lua(string.format(
     [[
-    require('bib').setup({ zotero = { database = %q } })
-    local function open(path)
-      vim.cmd.edit(path)
-      local buf, client = vim.api.nvim_get_current_buf(), nil
-      assert(vim.wait(3000, function()
-        client = vim.lsp.get_clients({ bufnr = buf, name = 'bib_ls' })[1]
-        return client and client.initialized
-      end))
-      return { buf = buf, client = client }
-    end
-    local function hover(doc)
-      local response = assert(doc.client:request_sync('textDocument/hover', {
-        textDocument = { uri = vim.uri_from_bufnr(doc.buf) }, position = { line = 4, character = 8 },
-      }, 3000, doc.buf))
-      assert(not response.err, response.err and response.err.message)
-      return response.result.contents.value
-    end
-    local first, second = open(%q), open(%q)
-    vim.cmd.edit(%q)
-    vim.api.nvim_buf_set_lines(0, -1, -1, false, { '@book{new, title={New}}' })
-    local original = vim.treesitter.get_parser
-    vim.treesitter.get_parser = function(buf, lang, ...)
-      if lang == 'bibtex' then error('injected bibliography failure') end
-      return original(buf, lang, ...)
-    end
-    local messages = {}
-    vim.notify = function(message) table.insert(messages, message) end
-    vim.cmd.write()
-    vim.treesitter.get_parser = original
-    return { first = hover(first), second = hover(second), messages = messages }
-  ]],
+      require("bib").setup({ zotero = { database = %q } })
+      local function open(path)
+        vim.cmd.edit(path)
+        local buf, client = vim.api.nvim_get_current_buf(), nil
+        assert(vim.wait(3000, function()
+          client = vim.lsp.get_clients({ bufnr = buf, name = "bib_ls" })[1]
+          return client and client.initialized
+        end))
+        return { buf = buf, client = client }
+      end
+      local function hover(doc)
+        local response = assert(doc.client:request_sync("textDocument/hover", {
+          textDocument = { uri = vim.uri_from_bufnr(doc.buf) },
+          position = { line = 4, character = 8 },
+        }, 3000, doc.buf))
+        assert(not response.err, response.err and response.err.message)
+        return response.result.contents.value
+      end
+      local first, second = open(%q), open(%q)
+      vim.cmd.edit(%q)
+      vim.api.nvim_buf_set_lines(0, -1, -1, false, { "@book{new, title={New}}" })
+      local original = vim.treesitter.get_parser
+      vim.treesitter.get_parser = function(buf, lang, ...)
+        if lang == "bibtex" then error("injected bibliography failure") end
+        return original(buf, lang, ...)
+      end
+      local messages = {}
+      vim.notify = function(message) table.insert(messages, message) end
+      vim.cmd.write()
+      vim.treesitter.get_parser = original
+      return { first = hover(first), second = hover(second), messages = messages }
+    ]],
     vim.fs.joinpath(dir, "missing.sqlite"),
     first,
     second,

@@ -28,35 +28,36 @@ T["zotero_backend"]["reloads changed WAL data when file timestamps match"] = fun
   u.write_file(child, md, "# Zotero\n\nSee @ABC123#smith2020.")
   local result = child.lua(string.format(
     [[
-    require('bib').setup({ zotero = { database = %q } })
-    vim.cmd.edit(%q)
-    local bufnr, client = vim.api.nvim_get_current_buf(), nil
-    assert(vim.wait(3000, function()
-      client = vim.lsp.get_clients({ bufnr = bufnr, name = 'bib_ls' })[1]
-      return client and client.initialized
-    end))
-    local writer = require('sqlite').new(%q)
-    writer:open()
-    writer:eval('PRAGMA journal_mode=WAL')
-    writer:eval('PRAGMA wal_autocheckpoint=0')
-    local function reload(title)
-      writer:eval("UPDATE itemDataValues SET value = ? WHERE valueID = 1", title)
-      vim.iter({ '', '-wal', '-shm' }):each(function(suffix)
-        local path = %q .. suffix
-        if vim.uv.fs_stat(path) then assert(vim.uv.fs_utime(path, 1700000000, 1700000000)) end
-      end)
-      vim.cmd.write()
-      local response = assert(client:request_sync('textDocument/hover', {
-        textDocument = { uri = vim.uri_from_bufnr(bufnr) }, position = { line = 2, character = 13 },
-      }, 3000, bufnr))
-      assert(not response.err, response.err and response.err.message)
-      return response.result.contents.value
-    end
-    local first = reload('First title')
-    local second = reload('Second title')
-    writer:close()
-    return { first = first, second = second }
-  ]],
+      require("bib").setup({ zotero = { database = %q } })
+      vim.cmd.edit(%q)
+      local bufnr, client = vim.api.nvim_get_current_buf(), nil
+      assert(vim.wait(3000, function()
+        client = vim.lsp.get_clients({ bufnr = bufnr, name = "bib_ls" })[1]
+        return client and client.initialized
+      end))
+      local writer = require("sqlite").new(%q)
+      writer:open()
+      writer:eval("PRAGMA journal_mode=WAL")
+      writer:eval("PRAGMA wal_autocheckpoint=0")
+      local function reload(title)
+        writer:eval("UPDATE itemDataValues SET value = ? WHERE valueID = 1", title)
+        vim.iter({ "", "-wal", "-shm" }):each(function(suffix)
+          local path = %q .. suffix
+          if vim.uv.fs_stat(path) then assert(vim.uv.fs_utime(path, 1700000000, 1700000000)) end
+        end)
+        vim.cmd.write()
+        local response = assert(client:request_sync("textDocument/hover", {
+          textDocument = { uri = vim.uri_from_bufnr(bufnr) },
+          position = { line = 2, character = 13 },
+        }, 3000, bufnr))
+        assert(not response.err, response.err and response.err.message)
+        return response.result.contents.value
+      end
+      local first = reload("First title")
+      local second = reload("Second title")
+      writer:close()
+      return { first = first, second = second }
+    ]],
     db_path,
     md,
     db_path,
@@ -74,28 +75,29 @@ T["zotero_backend"]["keeps citation data when the database is locked"] = functio
   u.write_file(child, md, "# Zotero\n\nSee @ABC123#smith2020.")
   local result = child.lua(string.format(
     [[
-    require('bib').setup({ zotero = { database = %q } })
-    vim.cmd.edit(%q)
-    local bufnr, client = vim.api.nvim_get_current_buf(), nil
-    assert(vim.wait(3000, function()
-      client = vim.lsp.get_clients({ bufnr = bufnr, name = 'bib_ls' })[1]
-      return client and client.initialized
-    end))
-    local writer = require('sqlite').new(%q)
-    writer:open()
-    writer:eval('PRAGMA journal_mode=DELETE')
-    writer:eval('BEGIN EXCLUSIVE')
-    local messages = {}
-    vim.notify = function(message) table.insert(messages, message) end
-    vim.cmd.write()
-    writer:eval('ROLLBACK')
-    writer:close()
-    local response = assert(client:request_sync('textDocument/hover', {
-      textDocument = { uri = vim.uri_from_bufnr(bufnr) }, position = { line = 2, character = 13 },
-    }, 3000, bufnr))
-    assert(not response.err, response.err and response.err.message)
-    return { hover = response.result.contents.value, messages = messages }
-  ]],
+      require("bib").setup({ zotero = { database = %q } })
+      vim.cmd.edit(%q)
+      local bufnr, client = vim.api.nvim_get_current_buf(), nil
+      assert(vim.wait(3000, function()
+        client = vim.lsp.get_clients({ bufnr = bufnr, name = "bib_ls" })[1]
+        return client and client.initialized
+      end))
+      local writer = require("sqlite").new(%q)
+      writer:open()
+      writer:eval("PRAGMA journal_mode=DELETE")
+      writer:eval("BEGIN EXCLUSIVE")
+      local messages = {}
+      vim.notify = function(message) table.insert(messages, message) end
+      vim.cmd.write()
+      writer:eval("ROLLBACK")
+      writer:close()
+      local response = assert(client:request_sync("textDocument/hover", {
+        textDocument = { uri = vim.uri_from_bufnr(bufnr) },
+        position = { line = 2, character = 13 },
+      }, 3000, bufnr))
+      assert(not response.err, response.err and response.err.message)
+      return { hover = response.result.contents.value, messages = messages }
+    ]],
     db_path,
     md,
     db_path
@@ -140,18 +142,18 @@ T["zotero_backend"]["excludes trashed attachments and notes from code actions"] 
   u.write_file(child, pdf, "%PDF-1.4\n%%EOF")
   child.lua(string.format(
     [[
-    local db = require('sqlite').new(%q)
-    db:open()
-    db:eval('DELETE FROM itemAttachments')
-    db:eval('DELETE FROM itemNotes')
-    db:eval("INSERT INTO items VALUES (20, 1, 'ATTACH', 1), (21, 1, 'NOTE', 1)")
-    db:eval("INSERT INTO itemAttachments VALUES (20, 1, ?, 'application/pdf')", %q)
-    db:eval("INSERT INTO itemNotes VALUES (21, 1, 'A note', 'Note')")
-    db:eval('INSERT INTO deletedItems VALUES (20), (21)')
-    db:close()
-    require('bib').setup({ zotero = { database = %q } })
-    vim.cmd.edit(%q)
-  ]],
+      local db = require("sqlite").new(%q)
+      db:open()
+      db:eval("DELETE FROM itemAttachments")
+      db:eval("DELETE FROM itemNotes")
+      db:eval("INSERT INTO items VALUES (20, 1, 'ATTACH', 1), (21, 1, 'NOTE', 1)")
+      db:eval("INSERT INTO itemAttachments VALUES (20, 1, ?, 'application/pdf')", %q)
+      db:eval("INSERT INTO itemNotes VALUES (21, 1, 'A note', 'Note')")
+      db:eval("INSERT INTO deletedItems VALUES (20), (21)")
+      db:close()
+      require("bib").setup({ zotero = { database = %q } })
+      vim.cmd.edit(%q)
+    ]],
     db_path,
     pdf,
     db_path,
@@ -170,19 +172,19 @@ T["zotero_backend"]["excludes a deleted parent from the picker"] = function()
   u.write_file(child, md, "# Zotero")
   local result = child.lua(string.format(
     [[
-    local db = require('sqlite').new(%q)
-    db:open()
-    db:eval('INSERT INTO deletedItems VALUES (1)')
-    db:close()
-    local selected, messages = false, {}
-    vim.ui.select = function() selected = true end
-    vim.notify = function(message) table.insert(messages, message) end
-    require('bib').setup({ zotero = { database = %q } })
-    vim.cmd.edit(%q)
-    vim.cmd('Bib search zotero')
-    assert(vim.wait(3000, function() return selected or vim.list_contains(messages, 'No entries found') end))
-    return { selected = selected, missing = vim.list_contains(messages, 'No entries found') }
-  ]],
+      local db = require("sqlite").new(%q)
+      db:open()
+      db:eval("INSERT INTO deletedItems VALUES (1)")
+      db:close()
+      local selected, messages = false, {}
+      vim.ui.select = function() selected = true end
+      vim.notify = function(message) table.insert(messages, message) end
+      require("bib").setup({ zotero = { database = %q } })
+      vim.cmd.edit(%q)
+      vim.cmd("Bib search zotero")
+      assert(vim.wait(3000, function() return selected or vim.list_contains(messages, "No entries found") end))
+      return { selected = selected, missing = vim.list_contains(messages, "No entries found") }
+    ]],
     db_path,
     db_path,
     md
@@ -221,13 +223,13 @@ T["zotero_backend"]["uses the Zotero item key when the citation key is absent"] 
   u.write_file(child, md, "# Zotero\n\nSee @ABC")
   child.lua(string.format(
     [[
-    local db = require('sqlite').new(%q)
-    db:open()
-    db:eval('DELETE FROM itemData WHERE itemID = 1 AND fieldID = 9')
-    db:close()
-    require('bib').setup({ zotero = { database = %q } })
-    vim.cmd.edit(%q)
-  ]],
+      local db = require("sqlite").new(%q)
+      db:open()
+      db:eval("DELETE FROM itemData WHERE itemID = 1 AND fieldID = 9")
+      db:close()
+      require("bib").setup({ zotero = { database = %q } })
+      vim.cmd.edit(%q)
+    ]],
     db_path,
     db_path,
     md
@@ -262,26 +264,26 @@ T["zotero_failures"]["snapshot setup failure leaves no temporary directories"] =
   u.write_file(child, md, "# Zotero")
   local result = child.lua(string.format(
     [[
-    require('bib').setup({ zotero = { database = %q } })
-    local autocmd, mkdir = vim.api.nvim_create_autocmd, vim.uv.fs_mkdir
-    local temporary, messages, warnings = {}, {}, {}
-    vim.uv.fs_mkdir = function(path, mode)
-      local result, err, code = mkdir(path, mode)
-      if result then table.insert(temporary, path) end
-      return result, err, code
-    end
-    vim.api.nvim_create_autocmd = function(events, opts)
-      if events == 'VimLeavePre' then error('autocmd failure') end
-      return autocmd(events, opts)
-    end
-    vim.notify = function(message) table.insert(messages, message) end
-    vim.lsp.log.warn = function(message) table.insert(warnings, message) end
-    vim.cmd.edit(%q)
-    vim.cmd('Bib search zotero')
-    assert(vim.wait(3000, function() return vim.list_contains(messages, 'No entries found') end))
-    vim.api.nvim_create_autocmd, vim.uv.fs_mkdir = autocmd, mkdir
-    return { count = #temporary, cleaned = vim.iter(temporary):all(function(path) return vim.uv.fs_stat(path) == nil end), warnings = warnings }
-  ]],
+      require("bib").setup({ zotero = { database = %q } })
+      local autocmd, mkdir = vim.api.nvim_create_autocmd, vim.uv.fs_mkdir
+      local temporary, messages, warnings = {}, {}, {}
+      vim.uv.fs_mkdir = function(path, mode)
+        local result, err, code = mkdir(path, mode)
+        if result then table.insert(temporary, path) end
+        return result, err, code
+      end
+      vim.api.nvim_create_autocmd = function(events, opts)
+        if events == "VimLeavePre" then error("autocmd failure") end
+        return autocmd(events, opts)
+      end
+      vim.notify = function(message) table.insert(messages, message) end
+      vim.lsp.log.warn = function(message) table.insert(warnings, message) end
+      vim.cmd.edit(%q)
+      vim.cmd("Bib search zotero")
+      assert(vim.wait(3000, function() return vim.list_contains(messages, "No entries found") end))
+      vim.api.nvim_create_autocmd, vim.uv.fs_mkdir = autocmd, mkdir
+      return { count = #temporary, cleaned = vim.iter(temporary):all(function(path) return vim.uv.fs_stat(path) == nil end), warnings = warnings }
+    ]],
     db_path,
     md
   ))
@@ -300,14 +302,14 @@ T["zotero_failures"]["logs cleanup failures without replacing the primary error"
     vim.notify = function(message) table.insert(messages, message) end
     vim.lsp.log.warn = function(message) table.insert(warnings, message) end
     vim.uv.fs_unlink = function(path, ...)
-      if path:sub(-4) == '.new' then
+      if path:sub(-4) == ".new" then
         count = count + 1
         temporary = path
-        if count == 2 then return nil, 'cleanup permission denied', 'EACCES' end
+        if count == 2 then return nil, "cleanup permission denied", "EACCES" end
       end
       return unlink(path, ...)
     end
-    vim.uv.fs_rename = function() return nil, 'primary rename failure', 'EACCES' end
+    vim.uv.fs_rename = function() return nil, "primary rename failure", "EACCES" end
     vim.cmd.write()
     vim.uv.fs_unlink, vim.uv.fs_rename = unlink, rename
     if temporary then unlink(temporary) end
@@ -327,7 +329,7 @@ T["zotero_failures"]["temporary cleanup failure preserves visible citation data"
   local messages = child.lua([[
     local unlink = vim.uv.fs_unlink
     vim.uv.fs_unlink = function(path, ...)
-      if path:sub(-4) == '.new' then return nil, 'permission denied', 'EACCES' end
+      if path:sub(-4) == ".new" then return nil, "permission denied", "EACCES" end
       return unlink(path, ...)
     end
     local messages = {}
@@ -347,17 +349,17 @@ T["zotero_failures"]["database stat errors preserve visible citation data"] = fu
   local fixture = open_zotero_citation()
   local messages = child.lua(string.format(
     [[
-    local stat = vim.uv.fs_stat
-    vim.uv.fs_stat = function(path, ...)
-      if path == %q then return nil, 'stat blocked', 'EACCES' end
-      return stat(path, ...)
-    end
-    local messages = {}
-    vim.notify = function(message) table.insert(messages, message) end
-    vim.cmd.write()
-    vim.uv.fs_stat = stat
-    return messages
-  ]],
+      local stat = vim.uv.fs_stat
+      vim.uv.fs_stat = function(path, ...)
+        if path == %q then return nil, "stat blocked", "EACCES" end
+        return stat(path, ...)
+      end
+      local messages = {}
+      vim.notify = function(message) table.insert(messages, message) end
+      vim.cmd.write()
+      vim.uv.fs_stat = stat
+      return messages
+    ]],
     fixture.db
   ))
   local hover = u.lsp_request(child, "textDocument/hover", fixture.position)
@@ -371,28 +373,33 @@ T["zotero_failures"]["query failure closes the snapshot and preserves citation d
   local fixture = open_zotero_citation()
   local result = child.lua(string.format(
     [[
-    local sqlite = require('sqlite')
-    local writer = sqlite.new(%q)
-    writer:open()
-    writer:eval("UPDATE itemDataValues SET value = 'Changed' WHERE valueID = 1")
-    writer:close()
-    local original, count, closed = package.loaded.sqlite, 0, false
-    package.loaded.sqlite = { new = function(...)
-      count = count + 1
-      local db = sqlite.new(...)
-      if count == 3 then
-        local close = db.close
-        db.eval = function() error('query failure') end
-        db.close = function(self, ...) closed = true; return close(self, ...) end
-      end
-      return db
-    end }
-    local messages = {}
-    vim.notify = function(message) table.insert(messages, message) end
-    vim.cmd.write()
-    package.loaded.sqlite = original
-    return { closed = closed, messages = messages }
-  ]],
+      local sqlite = require("sqlite")
+      local writer = sqlite.new(%q)
+      writer:open()
+      writer:eval("UPDATE itemDataValues SET value = 'Changed' WHERE valueID = 1")
+      writer:close()
+      local original, count, closed = package.loaded.sqlite, 0, false
+      package.loaded.sqlite = {
+        new = function(...)
+          count = count + 1
+          local db = sqlite.new(...)
+          if count == 3 then
+            local close = db.close
+            db.eval = function() error("query failure") end
+            db.close = function(self, ...)
+              closed = true
+              return close(self, ...)
+            end
+          end
+          return db
+        end,
+      }
+      local messages = {}
+      vim.notify = function(message) table.insert(messages, message) end
+      vim.cmd.write()
+      package.loaded.sqlite = original
+      return { closed = closed, messages = messages }
+    ]],
     fixture.db
   ))
   local hover = u.lsp_request(child, "textDocument/hover", fixture.position)
@@ -413,16 +420,16 @@ vim.iter({ "missing", "empty", "malformed" }):each(function(kind)
     u.write_file(child, md, "# Zotero")
     local result = child.lua(string.format(
       [[
-      local selected, messages, warnings = false, {}, {}
-      vim.ui.select = function() selected = true end
-      vim.notify = function(message) table.insert(messages, message) end
-      vim.lsp.log.warn = function(message) table.insert(warnings, message) end
-      require('bib').setup({ zotero = { database = %q } })
-      vim.cmd.edit(%q)
-      vim.cmd('Bib search zotero')
-      assert(vim.wait(3000, function() return selected or vim.list_contains(messages, 'No entries found') end))
-      return { selected = selected, missing = vim.list_contains(messages, 'No entries found'), warnings = warnings }
-    ]],
+        local selected, messages, warnings = false, {}, {}
+        vim.ui.select = function() selected = true end
+        vim.notify = function(message) table.insert(messages, message) end
+        vim.lsp.log.warn = function(message) table.insert(warnings, message) end
+        require("bib").setup({ zotero = { database = %q } })
+        vim.cmd.edit(%q)
+        vim.cmd("Bib search zotero")
+        assert(vim.wait(3000, function() return selected or vim.list_contains(messages, "No entries found") end))
+        return { selected = selected, missing = vim.list_contains(messages, "No entries found"), warnings = warnings }
+      ]],
       db,
       md
     ))
@@ -443,28 +450,26 @@ vim
       local fixture = open_zotero_citation()
       local result = child.lua(string.format(
         [[
-      local writer = require('sqlite').new(%q)
-      writer:open()
-      writer:eval("UPDATE itemDataValues SET value = 'Changed' WHERE valueID = 1")
-      if %q == 'item' then writer:eval('UPDATE fields SET fieldName = NULL WHERE fieldID = 1') end
-      writer:close()
-      local rename, unlink, temporary = vim.uv.fs_rename, vim.uv.fs_unlink, nil
-      vim.uv.fs_unlink = function(path, ...)
-        if path:sub(-4) == '.new' then temporary = path end
-        return unlink(path, ...)
-      end
-      if %q == 'rename' then
-        vim.uv.fs_rename = function(from, to)
-          if from:sub(-4) == '.new' then return nil, 'injected rename failure', 'EACCES' end
-          return rename(from, to)
-        end
-      end
-      local messages = {}
-      vim.notify = function(message) table.insert(messages, message) end
-      vim.cmd.write()
-      vim.uv.fs_rename, vim.uv.fs_unlink = rename, unlink
-      return { messages = messages, temporary = temporary and vim.uv.fs_stat(temporary) ~= nil }
-    ]],
+          local writer = require("sqlite").new(%q)
+          writer:open()
+          writer:eval("UPDATE itemDataValues SET value = 'Changed' WHERE valueID = 1")
+          if %q == "item" then writer:eval("UPDATE fields SET fieldName = NULL WHERE fieldID = 1") end
+          writer:close()
+          local rename, unlink, temporary = vim.uv.fs_rename, vim.uv.fs_unlink, nil
+          vim.uv.fs_unlink = function(path, ...)
+            if path:sub(-4) == ".new" then temporary = path end
+            return unlink(path, ...)
+          end
+          if %q == "rename" then vim.uv.fs_rename = function(from, to)
+            if from:sub(-4) == ".new" then return nil, "injected rename failure", "EACCES" end
+            return rename(from, to)
+          end end
+          local messages = {}
+          vim.notify = function(message) table.insert(messages, message) end
+          vim.cmd.write()
+          vim.uv.fs_rename, vim.uv.fs_unlink = rename, unlink
+          return { messages = messages, temporary = temporary and vim.uv.fs_stat(temporary) ~= nil }
+        ]],
         fixture.db,
         case.failure,
         case.failure
@@ -483,31 +488,33 @@ vim.iter({ { name = "source", index = 1 }, { name = "destination", index = 2 }, 
     local fixture = open_zotero_citation()
     local result = child.lua(string.format(
       [[
-      local sqlite = require('sqlite')
-      local writer = sqlite.new(%q)
-      writer:open()
-      writer:eval("UPDATE itemDataValues SET value = 'Changed' WHERE valueID = 1")
-      writer:close()
-      local original, count, closed = package.loaded.sqlite, 0, {}
-      package.loaded.sqlite = { new = function(...)
-        count = count + 1
-        local index = count
-        local db = sqlite.new(...)
-        local close = db.close
-        db.close = function(self, ...)
-          closed[index] = true
-          local result = close(self, ...)
-          if index == %d then error('injected close failure') end
-          return result
-        end
-        return db
-      end }
-      local messages = {}
-      vim.notify = function(message) table.insert(messages, message) end
-      vim.cmd.write()
-      package.loaded.sqlite = original
-      return { messages = messages, source = closed[1] or false, destination = closed[2] or false }
-    ]],
+        local sqlite = require("sqlite")
+        local writer = sqlite.new(%q)
+        writer:open()
+        writer:eval("UPDATE itemDataValues SET value = 'Changed' WHERE valueID = 1")
+        writer:close()
+        local original, count, closed = package.loaded.sqlite, 0, {}
+        package.loaded.sqlite = {
+          new = function(...)
+            count = count + 1
+            local index = count
+            local db = sqlite.new(...)
+            local close = db.close
+            db.close = function(self, ...)
+              closed[index] = true
+              local result = close(self, ...)
+              if index == %d then error("injected close failure") end
+              return result
+            end
+            return db
+          end,
+        }
+        local messages = {}
+        vim.notify = function(message) table.insert(messages, message) end
+        vim.cmd.write()
+        package.loaded.sqlite = original
+        return { messages = messages, source = closed[1] or false, destination = closed[2] or false }
+      ]],
       fixture.db,
       case.index
     ))
@@ -524,9 +531,12 @@ end)
 T["zotero_failures"]["backup finish error preserves visible citation data"] = function()
   local fixture = open_zotero_citation()
   local messages = child.lua([[
-    local defs = require('sqlite.defs')
+    local defs = require("sqlite.defs")
     local finish = defs.backup_finish
-    defs.backup_finish = function(ptr) finish(ptr); return defs.flags.error end
+    defs.backup_finish = function(ptr)
+      finish(ptr)
+      return defs.flags.error
+    end
     local messages = {}
     vim.notify = function(message) table.insert(messages, message) end
     vim.cmd.write()
@@ -543,18 +553,20 @@ end
 T["zotero_failures"]["both database close failures preserve the primary error"] = function()
   local fixture = open_zotero_citation()
   local result = child.lua([[
-    local sqlite = require('sqlite')
+    local sqlite = require("sqlite")
     local original, closed = package.loaded.sqlite, 0
-    package.loaded.sqlite = { new = function(...)
-      local db = sqlite.new(...)
-      local close = db.close
-      db.close = function(self, ...)
-        closed = closed + 1
-        close(self, ...)
-        error('injected close failure ' .. closed)
-      end
-      return db
-    end }
+    package.loaded.sqlite = {
+      new = function(...)
+        local db = sqlite.new(...)
+        local close = db.close
+        db.close = function(self, ...)
+          closed = closed + 1
+          close(self, ...)
+          error("injected close failure " .. closed)
+        end
+        return db
+      end,
+    }
     local messages, warnings = {}, {}
     vim.notify = function(message) table.insert(messages, message) end
     vim.lsp.log.warn = function(message) table.insert(warnings, message) end

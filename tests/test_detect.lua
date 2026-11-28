@@ -119,26 +119,24 @@ T["latex"]["reports query iteration failures through the command"] = function()
   u.write_file(child, tex, "\\bibliography{refs}\n\\begin{document}\nSee \\cite{selected}.\n\\end{document}")
   local result = child.lua(string.format(
     [[
-    local parse = vim.treesitter.query.parse
-    vim.treesitter.query.parse = function(lang, text)
-      local query = parse(lang, text)
-      if lang == 'latex' and text:find('bibtex_include', 1, true) then
-        query.iter_matches = function() error('iteration failed') end
+      local parse = vim.treesitter.query.parse
+      vim.treesitter.query.parse = function(lang, text)
+        local query = parse(lang, text)
+        if lang == "latex" and text:find("bibtex_include", 1, true) then query.iter_matches = function() error("iteration failed") end end
+        return query
       end
-      return query
-    end
-    local messages, warnings = {}, {}
-    vim.notify = function(message) table.insert(messages, message) end
-    vim.lsp.log.warn = function(message) table.insert(warnings, message) end
-    require('bib').setup({ zotero = { database = %q } })
-    vim.cmd.edit(%q)
-    vim.cmd('Bib')
-    assert(vim.wait(3000, function()
-      return vim.iter(messages):any(function(message) return message == 'No entries found' end)
-    end))
-    vim.treesitter.query.parse = parse
-    return { messages = messages, warnings = warnings }
-  ]],
+      local messages, warnings = {}, {}
+      vim.notify = function(message) table.insert(messages, message) end
+      vim.lsp.log.warn = function(message) table.insert(warnings, message) end
+      require("bib").setup({ zotero = { database = %q } })
+      vim.cmd.edit(%q)
+      vim.cmd("Bib")
+      assert(vim.wait(3000, function()
+        return vim.iter(messages):any(function(message) return message == "No entries found" end)
+      end))
+      vim.treesitter.query.parse = parse
+      return { messages = messages, warnings = warnings }
+    ]],
     vim.fs.joinpath(dir, "missing.sqlite"),
     tex
   ))
@@ -155,14 +153,14 @@ T["markdown"]["does not require the LaTeX parser"] = function()
   u.write_file(child, md, "---\nbibliography: refs.bib\n---\n\nSee @selected.")
   child.lua(string.format(
     [[
-    _G.original_query_parse = vim.treesitter.query.parse
-    vim.treesitter.query.parse = function(lang, query)
-      if lang == 'latex' then error('LaTeX parser unavailable') end
-      return _G.original_query_parse(lang, query)
-    end
-    require('bib').setup({ zotero = { database = %q } })
-    vim.cmd.edit(%q)
-  ]],
+      _G.original_query_parse = vim.treesitter.query.parse
+      vim.treesitter.query.parse = function(lang, query)
+        if lang == "latex" then error("LaTeX parser unavailable") end
+        return _G.original_query_parse(lang, query)
+      end
+      require("bib").setup({ zotero = { database = %q } })
+      vim.cmd.edit(%q)
+    ]],
     vim.fs.joinpath(dir, "missing.sqlite"),
     md
   ))

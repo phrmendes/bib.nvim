@@ -29,22 +29,25 @@ end
 local function spell_attributes(columns)
   return child.lua(
     [[
-    local columns = ...
-    local function snapshot()
-      vim.cmd('redraw!')
-      return vim.iter(columns):map(function(col)
-        local position = vim.fn.screenpos(0, 1, col)
-        assert(position.row > 0 and position.col > 0, 'text is not visible')
-        return { char = vim.fn.screenstring(position.row, position.col), attr = vim.fn.screenattr(position.row, position.col) }
-      end):totable()
-    end
-    vim.wo.spell = true
-    local enabled = snapshot()
-    vim.wo.spell = false
-    local disabled = snapshot()
-    vim.wo.spell = true
-    return { enabled = enabled, disabled = disabled }
-  ]],
+      local columns = ...
+      local function snapshot()
+        vim.cmd("redraw!")
+        return vim
+          .iter(columns)
+          :map(function(col)
+            local position = vim.fn.screenpos(0, 1, col)
+            assert(position.row > 0 and position.col > 0, "text is not visible")
+            return { char = vim.fn.screenstring(position.row, position.col), attr = vim.fn.screenattr(position.row, position.col) }
+          end)
+          :totable()
+      end
+      vim.wo.spell = true
+      local enabled = snapshot()
+      vim.wo.spell = false
+      local disabled = snapshot()
+      vim.wo.spell = true
+      return { enabled = enabled, disabled = disabled }
+    ]],
     { columns }
   )
 end
@@ -134,11 +137,11 @@ T["conceal"]["extmarks update after editing a citation"] = function()
   ]])
 
   local extmarks = child.lua([[
-		local ns = vim.api.nvim_get_namespaces()["bib_conceal"]
-		local marks = vim.api.nvim_buf_get_extmarks(0, ns, 0, -1, { details = true })
-		table.sort(marks, function(a, b) return a[3] < b[3] end)
-		return marks
-	]])
+    local ns = vim.api.nvim_get_namespaces()["bib_conceal"]
+    local marks = vim.api.nvim_buf_get_extmarks(0, ns, 0, -1, { details = true })
+    table.sort(marks, function(a, b) return a[3] < b[3] end)
+    return marks
+  ]])
 
   eq(#extmarks, 3)
   eq(col(extmarks, 1), 4)
@@ -155,11 +158,11 @@ T["conceal"]["extmarks persist after BufWritePost"] = function()
   child.lua("vim.cmd.write()")
 
   local marks = child.lua([[
-		local ns = vim.api.nvim_get_namespaces()["bib_conceal"]
-		local marks = vim.api.nvim_buf_get_extmarks(0, ns, 0, -1, { details = true })
-		table.sort(marks, function(a, b) return a[3] < b[3] end)
-		return marks
-	]])
+    local ns = vim.api.nvim_get_namespaces()["bib_conceal"]
+    local marks = vim.api.nvim_buf_get_extmarks(0, ns, 0, -1, { details = true })
+    table.sort(marks, function(a, b) return a[3] < b[3] end)
+    return marks
+  ]])
 
   eq(#marks, 3)
   eq(hl(marks, 3), "BibCiteKey")
@@ -195,20 +198,20 @@ vim.iter({ "throws", "returns nil" }):each(function(failure)
     u.write_file(child, md, "```markdown\n@hidden\n```\n\n@visible")
     local marks = child.lua(string.format(
       [[
-      require('bib').setup({ zotero = { database = %q } })
-      local original = vim.treesitter.get_node
-      vim.treesitter.get_node = function(opts)
-        if opts.ignore_injections then
-          if %q == 'throws' then error('first lookup failed') end
-          return nil
+        require("bib").setup({ zotero = { database = %q } })
+        local original = vim.treesitter.get_node
+        vim.treesitter.get_node = function(opts)
+          if opts.ignore_injections then
+            if %q == "throws" then error("first lookup failed") end
+            return nil
+          end
+          return original(opts)
         end
-        return original(opts)
-      end
-      vim.cmd.edit(%q)
-      vim.treesitter.get_node = original
-      local namespace = vim.api.nvim_get_namespaces().bib_conceal
-      return vim.api.nvim_buf_get_extmarks(0, namespace, 0, -1, {})
-    ]],
+        vim.cmd.edit(%q)
+        vim.treesitter.get_node = original
+        local namespace = vim.api.nvim_get_namespaces().bib_conceal
+        return vim.api.nvim_buf_get_extmarks(0, namespace, 0, -1, {})
+      ]],
       vim.fs.joinpath(dir, "missing.sqlite"),
       failure,
       md
@@ -274,11 +277,11 @@ T["conceal"]["ignores unconfigured filetypes"] = function()
   u.write_file(child, path, "# see @decorator for details")
   local result = child.lua(string.format(
     [[
-    require('bib').setup({ zotero = { database = %q } })
-    vim.cmd.edit(%q)
-    local namespace = vim.api.nvim_get_namespaces().bib_conceal
-    return { filetype = vim.bo.filetype, marks = vim.api.nvim_buf_get_extmarks(0, namespace, 0, -1, {}) }
-  ]],
+      require("bib").setup({ zotero = { database = %q } })
+      vim.cmd.edit(%q)
+      local namespace = vim.api.nvim_get_namespaces().bib_conceal
+      return { filetype = vim.bo.filetype, marks = vim.api.nvim_buf_get_extmarks(0, namespace, 0, -1, {}) }
+    ]],
     vim.fs.joinpath(dir, "missing.sqlite"),
     path
   ))

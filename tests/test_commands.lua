@@ -12,8 +12,8 @@ T["setup"] = test.new_set()
 T["setup"]["returns command setup errors without throwing"] = function()
   local result = child.lua([[
     local create = vim.api.nvim_create_user_command
-    vim.api.nvim_create_user_command = function() error('command setup failed') end
-    local ok, err = pcall(require('bib').setup, {})
+    vim.api.nvim_create_user_command = function() error("command setup failed") end
+    local ok, err = pcall(require("bib").setup, {})
     vim.api.nvim_create_user_command = create
     return { ok = ok, err = err or vim.NIL }
   ]])
@@ -30,23 +30,23 @@ T["setup"]["reports a missing bibliography query through the command"] = functio
   u.write_file(child, md, "---\nbibliography: refs.bib\n---\n")
   local result = child.lua(string.format(
     [[
-    local lookup = vim.api.nvim_get_runtime_file
-    vim.api.nvim_get_runtime_file = function(path, ...)
-      if path == 'queries/bibtex/strings.scm' then return {} end
-      return lookup(path, ...)
-    end
-    local messages, warnings = {}, {}
-    vim.notify = function(message) table.insert(messages, message) end
-    vim.lsp.log.warn = function(message) table.insert(warnings, message) end
-    require('bib').setup({ zotero = { database = %q } })
-    vim.cmd.edit(%q)
-    vim.cmd('Bib')
-    assert(vim.wait(3000, function()
-      return vim.iter(messages):any(function(message) return message == 'No entries found' end)
-    end))
-    vim.api.nvim_get_runtime_file = lookup
-    return { messages = messages, warnings = warnings }
-  ]],
+      local lookup = vim.api.nvim_get_runtime_file
+      vim.api.nvim_get_runtime_file = function(path, ...)
+        if path == "queries/bibtex/strings.scm" then return {} end
+        return lookup(path, ...)
+      end
+      local messages, warnings = {}, {}
+      vim.notify = function(message) table.insert(messages, message) end
+      vim.lsp.log.warn = function(message) table.insert(warnings, message) end
+      require("bib").setup({ zotero = { database = %q } })
+      vim.cmd.edit(%q)
+      vim.cmd("Bib")
+      assert(vim.wait(3000, function()
+        return vim.iter(messages):any(function(message) return message == "No entries found" end)
+      end))
+      vim.api.nvim_get_runtime_file = lookup
+      return { messages = messages, warnings = warnings }
+    ]],
     vim.fs.joinpath(dir, "missing.sqlite"),
     md
   ))
@@ -62,21 +62,21 @@ T["setup"]["reports runtime query lookup errors through the command"] = function
   u.write_file(child, md, "---\nbibliography: refs.bib\n---\n")
   local result = child.lua(string.format(
     [[
-    local lookup = vim.api.nvim_get_runtime_file
-    vim.api.nvim_get_runtime_file = function(path, ...)
-      if path == 'queries/bibtex/strings.scm' then error('lookup failed') end
-      return lookup(path, ...)
-    end
-    local messages, warnings = {}, {}
-    vim.notify = function(message) table.insert(messages, message) end
-    vim.lsp.log.warn = function(message) table.insert(warnings, message) end
-    require('bib').setup({ zotero = { database = %q } })
-    vim.cmd.edit(%q)
-    vim.cmd('Bib')
-    assert(vim.wait(3000, function() return vim.list_contains(messages, 'No entries found') end))
-    vim.api.nvim_get_runtime_file = lookup
-    return { messages = messages, warnings = warnings }
-  ]],
+      local lookup = vim.api.nvim_get_runtime_file
+      vim.api.nvim_get_runtime_file = function(path, ...)
+        if path == "queries/bibtex/strings.scm" then error("lookup failed") end
+        return lookup(path, ...)
+      end
+      local messages, warnings = {}, {}
+      vim.notify = function(message) table.insert(messages, message) end
+      vim.lsp.log.warn = function(message) table.insert(warnings, message) end
+      require("bib").setup({ zotero = { database = %q } })
+      vim.cmd.edit(%q)
+      vim.cmd("Bib")
+      assert(vim.wait(3000, function() return vim.list_contains(messages, "No entries found") end))
+      vim.api.nvim_get_runtime_file = lookup
+      return { messages = messages, warnings = warnings }
+    ]],
     vim.fs.joinpath(dir, "missing.sqlite"),
     md
   ))
@@ -95,12 +95,12 @@ T["search"]["the default command opens the reference picker"] = function()
   child.lua(string.format([[vim.cmd.edit(%q)]], md))
   child.lua(string.format(
     [[
-    require('bib').setup({ zotero = { database = %q } })
-    vim.ui.select = function(items) _G.default_items = items end
-    vim.notify = function() end
-    vim.cmd('Bib')
-    assert(vim.wait(3000, function() return _G.default_items ~= nil end))
-  ]],
+      require("bib").setup({ zotero = { database = %q } })
+      vim.ui.select = function(items) _G.default_items = items end
+      vim.notify = function() end
+      vim.cmd("Bib")
+      assert(vim.wait(3000, function() return _G.default_items ~= nil end))
+    ]],
     vim.fs.joinpath(dir, "missing.sqlite")
   ))
 
@@ -111,12 +111,12 @@ T["search"]["unknown subcommands report an error"] = function()
   local dir = u.temp_dir()
   local message = child.lua(string.format(
     [[
-    require('bib').setup({ zotero = { database = %q } })
-    local message
-    vim.notify = function(value) message = value end
-    vim.cmd('Bib unknown')
-    return message
-  ]],
+      require("bib").setup({ zotero = { database = %q } })
+      local message
+      vim.notify = function(value) message = value end
+      vim.cmd("Bib unknown")
+      return message
+    ]],
     vim.fs.joinpath(dir, "missing.sqlite")
   ))
 
@@ -132,11 +132,9 @@ T["search"]["shows bib entries in picker"] = function()
   child.lua(string.format("vim.cmd.edit(%q)", md))
 
   child.lua([[
-		_G._sel_items = nil
-		vim.ui.select = function(items, opts, on_choice)
-			_G._sel_items = items
-		end
-	]])
+    _G._sel_items = nil
+    vim.ui.select = function(items, opts, on_choice) _G._sel_items = items end
+  ]])
 
   child.lua("vim.cmd('Bib')")
   child.lua("vim.wait(1000, function() return _G._sel_items ~= nil end)")
@@ -163,11 +161,9 @@ T["search"]["shows zotero entries in picker"] = function()
   child.lua(string.format("require('bib').setup({ zotero = { database = %q } })", vim.fs.joinpath(dir, "zotero.sqlite")))
 
   child.lua([[
-		_G._sel_items = nil
-		vim.ui.select = function(items, opts, on_choice)
-			_G._sel_items = items
-		end
-	]])
+    _G._sel_items = nil
+    vim.ui.select = function(items, opts, on_choice) _G._sel_items = items end
+  ]])
 
   child.lua("vim.cmd('Bib search zotero')")
   child.lua("vim.wait(1000, function() return _G._sel_items ~= nil end)")
@@ -190,11 +186,9 @@ T["search"]["format is author - title (year)"] = function()
   child.lua(string.format("vim.cmd.edit(%q)", md))
 
   child.lua([[
-		_G._sel_items = nil
-		vim.ui.select = function(items, opts, on_choice)
-			_G._sel_items = items
-		end
-	]])
+    _G._sel_items = nil
+    vim.ui.select = function(items, opts, on_choice) _G._sel_items = items end
+  ]])
 
   child.lua("vim.cmd('Bib')")
   child.lua("vim.wait(1000, function() return _G._sel_items ~= nil end)")
@@ -213,14 +207,14 @@ T["search"]["formats multiple authors in the picker"] = function()
   u.write_file(child, md, "---\nbibliography: refs.bib\n---\n")
   local items = child.lua(string.format(
     [[
-    require('bib').setup({ zotero = { database = %q } })
-    vim.cmd.edit(%q)
-    local items
-    vim.ui.select = function(value) items = value end
-    vim.cmd('Bib')
-    assert(vim.wait(3000, function() return items ~= nil end))
-    return items
-  ]],
+      require("bib").setup({ zotero = { database = %q } })
+      vim.cmd.edit(%q)
+      local items
+      vim.ui.select = function(value) items = value end
+      vim.cmd("Bib")
+      assert(vim.wait(3000, function() return items ~= nil end))
+      return items
+    ]],
     vim.fs.joinpath(dir, "missing.sqlite"),
     md
   ))
@@ -236,14 +230,17 @@ T["search"]["cancelling the picker leaves the document open"] = function()
   u.write_file(child, md, "---\nbibliography: refs.bib\n---\n")
   local result = child.lua(string.format(
     [[
-    require('bib').setup({ zotero = { database = %q } })
-    vim.cmd.edit(%q)
-    local selected = false
-    vim.ui.select = function(_, _, choose) selected = true; choose(nil) end
-    vim.cmd('Bib')
-    assert(vim.wait(3000, function() return selected end))
-    return vim.api.nvim_buf_get_name(0)
-  ]],
+      require("bib").setup({ zotero = { database = %q } })
+      vim.cmd.edit(%q)
+      local selected = false
+      vim.ui.select = function(_, _, choose)
+        selected = true
+        choose(nil)
+      end
+      vim.cmd("Bib")
+      assert(vim.wait(3000, function() return selected end))
+      return vim.api.nvim_buf_get_name(0)
+    ]],
     vim.fs.joinpath(dir, "missing.sqlite"),
     md
   ))
@@ -260,12 +257,13 @@ T["search"]["selection opens zotero URI"] = function()
   child.lua(string.format("require('bib').setup({ zotero = { database = %q } })", vim.fs.joinpath(dir, "zotero.sqlite")))
 
   child.lua([[
-		_G._opened = nil
-		vim.ui.open = function(uri) _G._opened = uri; return {} end
-		vim.ui.select = function(items, opts, on_choice)
-			on_choice(items[1])
-		end
-	]])
+    _G._opened = nil
+    vim.ui.open = function(uri)
+      _G._opened = uri
+      return {}
+    end
+    vim.ui.select = function(items, opts, on_choice) on_choice(items[1]) end
+  ]])
 
   child.lua("vim.cmd('Bib search zotero')")
   child.lua("vim.wait(1000, function() return _G._opened ~= nil end)")
@@ -285,7 +283,7 @@ T["search"]["selection opens the bibliography at the entry"] = function()
   child.lua(string.format([[vim.cmd.edit(%q); vim.api.nvim_win_set_cursor(0, { 4, 5 })]], md))
   child.lua([[
     vim.ui.select = function(items, _, choose) choose(items[1]) end
-    vim.cmd('Bib')
+    vim.cmd("Bib")
   ]])
   child.lua(string.format("vim.wait(1000, function() return vim.api.nvim_buf_get_name(0) == %q end)", bib_path))
 
@@ -302,18 +300,18 @@ T["search"]["overlapping pickers retain their bibliography"] = function()
 
   child.lua(string.format(
     [[
-    require('bib').setup({ zotero = { database = %q } })
-    _G.pickers = {}
-    vim.ui.select = function(items, _, choose) table.insert(_G.pickers, { items = items, choose = choose }) end
-    vim.cmd.edit(%q)
-    vim.cmd('Bib')
-    assert(vim.wait(1000, function() return #_G.pickers == 1 end))
-    vim.cmd.edit(%q)
-    vim.cmd('Bib')
-    assert(vim.wait(1000, function() return #_G.pickers == 2 end))
-    _G.pickers[1].choose(_G.pickers[1].items[1])
-    assert(vim.wait(1000, function() return vim.api.nvim_buf_get_name(0) == %q end))
-  ]],
+      require("bib").setup({ zotero = { database = %q } })
+      _G.pickers = {}
+      vim.ui.select = function(items, _, choose) table.insert(_G.pickers, { items = items, choose = choose }) end
+      vim.cmd.edit(%q)
+      vim.cmd("Bib")
+      assert(vim.wait(1000, function() return #_G.pickers == 1 end))
+      vim.cmd.edit(%q)
+      vim.cmd("Bib")
+      assert(vim.wait(1000, function() return #_G.pickers == 2 end))
+      _G.pickers[1].choose(_G.pickers[1].items[1])
+      assert(vim.wait(1000, function() return vim.api.nvim_buf_get_name(0) == %q end))
+    ]],
     vim.fs.joinpath(first, "missing.sqlite"),
     vim.fs.joinpath(first, "paper.md"),
     vim.fs.joinpath(second, "paper.md"),
@@ -329,15 +327,15 @@ T["search"]["zotero-only search does not fall back to a bib file"] = function()
   u.write_file(child, md, "---\nbibliography: refs.bib\n---\n")
   local result = child.lua(string.format(
     [[
-    vim.cmd.edit(%q)
-    require('bib').setup({ zotero = { database = %q } })
-    local selected, message = false, nil
-    vim.ui.select = function() selected = true end
-    vim.notify = function(text) message = text end
-    vim.cmd('Bib search zotero')
-    assert(vim.wait(1000, function() return selected or message ~= nil end))
-    return { selected = selected, message = message }
-  ]],
+      vim.cmd.edit(%q)
+      require("bib").setup({ zotero = { database = %q } })
+      local selected, message = false, nil
+      vim.ui.select = function() selected = true end
+      vim.notify = function(text) message = text end
+      vim.cmd("Bib search zotero")
+      assert(vim.wait(1000, function() return selected or message ~= nil end))
+      return { selected = selected, message = message }
+    ]],
     md,
     vim.fs.joinpath(dir, "missing.sqlite")
   ))
@@ -352,14 +350,14 @@ T["search"]["unscoped search falls back to Zotero"] = function()
   u.write_file(child, md, "# No bibliography")
   local items = child.lua(string.format(
     [[
-    vim.cmd.edit(%q)
-    require('bib').setup({ zotero = { database = %q } })
-    local items
-    vim.ui.select = function(value) items = value end
-    vim.cmd('Bib')
-    assert(vim.wait(1000, function() return items ~= nil end))
-    return items
-  ]],
+      vim.cmd.edit(%q)
+      require("bib").setup({ zotero = { database = %q } })
+      local items
+      vim.ui.select = function(value) items = value end
+      vim.cmd("Bib")
+      assert(vim.wait(1000, function() return items ~= nil end))
+      return items
+    ]],
     md,
     db
   ))
@@ -375,25 +373,25 @@ T["search"]["reports returned and thrown Zotero open errors"] = function()
   u.write_file(child, md, "# Zotero")
   local result = child.lua(string.format(
     [[
-    vim.cmd.edit(%q)
-    require('bib').setup({ zotero = { database = %q } })
-    local messages, attempts = {}, 0
-    vim.notify = function(message) table.insert(messages, message) end
-    vim.ui.select = function(items, _, choose) choose(items[1]) end
-    vim.ui.open = function()
-      attempts = attempts + 1
-      if attempts == 1 then return nil, 'no handler' end
-      if attempts == 2 then error('spawn failed') end
-      return {}
-    end
-    vim.cmd('Bib search zotero')
-    assert(vim.wait(3000, function() return attempts == 1 end))
-    vim.cmd('Bib search zotero')
-    assert(vim.wait(3000, function() return attempts == 2 end))
-    vim.cmd('Bib search zotero')
-    assert(vim.wait(3000, function() return attempts == 3 end))
-    return messages
-  ]],
+      vim.cmd.edit(%q)
+      require("bib").setup({ zotero = { database = %q } })
+      local messages, attempts = {}, 0
+      vim.notify = function(message) table.insert(messages, message) end
+      vim.ui.select = function(items, _, choose) choose(items[1]) end
+      vim.ui.open = function()
+        attempts = attempts + 1
+        if attempts == 1 then return nil, "no handler" end
+        if attempts == 2 then error("spawn failed") end
+        return {}
+      end
+      vim.cmd("Bib search zotero")
+      assert(vim.wait(3000, function() return attempts == 1 end))
+      vim.cmd("Bib search zotero")
+      assert(vim.wait(3000, function() return attempts == 2 end))
+      vim.cmd("Bib search zotero")
+      assert(vim.wait(3000, function() return attempts == 3 end))
+      return messages
+    ]],
     md,
     db
   ))
